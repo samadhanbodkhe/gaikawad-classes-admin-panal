@@ -4,7 +4,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const teacherApproveRejectApi = createApi({
   reducerPath: "teacherApproveRejectApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: `${import.meta.env.VITE_BACKEND_URL}/approveReject`,
+    baseUrl: `${import.meta.env.VITE_BACKEND_URL}/api/v1/approveReject`,
     credentials: "include",
   }),
   tagTypes: ["TeacherRequests", "Teachers"],
