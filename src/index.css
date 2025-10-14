@@ -1,0 +1,20 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+.product-carousel .carousel .slide {
+    background: transparent;
+}
+
+.product-carousel .carousel .control-arrow {
+    background: rgba(0, 0, 0, 0.2) !important;
+    height: 30px;
+    top: calc(50% - 15px);
+    border-radius: 4px;
+}
+
+.product-carousel .carousel .control-arrow:hover {
+    background: rgba(0, 0, 0, 0.4) !important;
+}
+
+
