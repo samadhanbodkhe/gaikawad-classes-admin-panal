@@ -4,7 +4,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const studentApi = createApi({
   reducerPath: "studentApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: `${import.meta.env.VITE_BACKEND_URL}/api/v1/student`,
+    baseUrl: `${import.meta.env.VITE_BACKEND_URL}/student`,
     credentials: "include",
   }),
   tagTypes: ["Student"],

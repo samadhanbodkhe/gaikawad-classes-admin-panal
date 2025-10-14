@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const scheduleApi = createApi({
     reducerPath: "scheduleApi",
     baseQuery: fetchBaseQuery({
-        baseUrl: `${import.meta.env.VITE_BACKEND_URL}/api/v1/schedule`,
+        baseUrl: `${import.meta.env.VITE_BACKEND_URL}/schedule`,
         prepareHeaders: (headers, { getState }) => {
             const token = getState().auth?.adminToken;
             if (token) {

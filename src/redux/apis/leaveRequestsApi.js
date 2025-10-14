@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const leaveRequestsApi = createApi({
     reducerPath: "leaveRequestsApi",
     baseQuery: fetchBaseQuery({
-        baseUrl: `${import.meta.env.VITE_BACKEND_URL}/api/v1/leaveRequest`,
+        baseUrl: `${import.meta.env.VITE_BACKEND_URL}/leaveRequest`,
         prepareHeaders: (headers, { getState }) => {
             const token = getState().auth?.adminToken;
             if (token) {
