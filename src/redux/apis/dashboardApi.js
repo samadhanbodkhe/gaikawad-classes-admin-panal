@@ -4,7 +4,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const dashboardApi = createApi({
   reducerPath: "dashboardApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: `${import.meta.env.VITE_BACKEND_URL}/dashboard`,
+    baseUrl: `${import.meta.env.VITE_BACKEND_URL}/api/v1/dashboard`,
     credentials: "include", // ✅ Important for sending cookies (auth)
   }),
   tagTypes: ["Dashboard"],

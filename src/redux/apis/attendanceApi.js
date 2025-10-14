@@ -3,7 +3,7 @@ import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 export const attendanceApi = createApi({
   reducerPath: "attendanceApi",
   baseQuery: fetchBaseQuery({
-    baseUrl: `${import.meta.env.VITE_BACKEND_URL}/attendance`,
+    baseUrl: `${import.meta.env.VITE_BACKEND_URL}/api/v1/attendance`,
     credentials: "include",
     prepareHeaders: (headers) => {
       const adminToken = localStorage.getItem("adminToken");
