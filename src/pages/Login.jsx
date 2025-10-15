@@ -1,6 +1,6 @@
 // src/pages/Login.jsx
-import React, { useState, useEffect, useRef } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import React, { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { toast } from "react-toastify";
 import {
   useLoginAdminMutation,
@@ -10,20 +10,19 @@ import {
 const Login = () => {
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
-  const [otp, setOtp] = useState(["", "", "", ""]); // ✅ only 4 digits
+  const [otp, setOtp] = useState(["", "", "", ""]);
   const [countdown, setCountdown] = useState(0);
   const [isResending, setIsResending] = useState(false);
 
-  const [loginAdmin, { isLoading: loginLoading, isSuccess: loginSuccess, isError: loginError, error: loginErr }] =
+  const [loginAdmin, { isLoading: loginLoading, isSuccess: loginSuccess, data: loginData, error: loginError }] =
     useLoginAdminMutation();
 
-  const [verifyAdmin, { isLoading: verifyLoading, isSuccess: verifySuccess, isError: verifyError, error: verifyErr }] =
+  const [verifyAdmin, { isLoading: verifyLoading, isSuccess: verifySuccess, data: verifyData, error: verifyError }] =
     useVerifyAdminMutation();
 
   const navigate = useNavigate();
   const otpInputs = useRef([]);
 
-  // countdown
   useEffect(() => {
     if (countdown > 0) {
       const timer = setTimeout(() => setCountdown(countdown - 1), 1000);
@@ -31,61 +30,56 @@ const Login = () => {
     }
   }, [countdown]);
 
-  // when login success, show otp step
   useEffect(() => {
     if (loginSuccess) {
       toast.success("OTP sent to your email");
       setStep(2);
       setCountdown(60);
       setTimeout(() => otpInputs.current[0]?.focus(), 150);
+    } else if (loginError) {
+      toast.error(loginError?.data?.message || "Failed to send OTP");
     }
-    if (loginError && loginErr) {
-      toast.error(loginErr?.data?.message || "Failed to send OTP");
-    }
-  }, [loginSuccess, loginError, loginErr]);
+  }, [loginSuccess, loginError]);
 
-  // when verify success
- useEffect(() => {
-  if (verifySuccess) {
-    toast.success("Login successful!");
-    setTimeout(() => {
-      const token = localStorage.getItem("token");
-      const admin = localStorage.getItem("admin");
-      if (token && admin) {
-        navigate("/");  // ✅ Go to Admin Panel
+  useEffect(() => {
+    if (verifySuccess && verifyData) {
+      // Save token & admin to localStorage (very important)
+      try {
+        localStorage.setItem("token", verifyData.token);
+        localStorage.setItem("admin", JSON.stringify(verifyData.admin));
+      } catch (e) {
+        console.error("Failed to save auth info:", e);
       }
-    }, 500);
-  }
-  if (verifyError && verifyErr) {
-    toast.error(verifyErr?.data?.message || "Invalid OTP");
-  }
-}, [verifySuccess, verifyError, verifyErr, navigate]);
+      toast.success("Login successful!");
+      // Navigate now that token is saved
+      navigate("/");
+    } else if (verifyError) {
+      toast.error(verifyError?.data?.message || "Invalid OTP");
+    }
+  }, [verifySuccess, verifyError, verifyData, navigate]);
 
-  // submit email
   const handleEmailSubmit = async (e) => {
     e.preventDefault();
     if (!email.trim()) return toast.error("Please enter email");
     try {
       await loginAdmin({ email }).unwrap();
-    } catch {}
+    } catch (err) {
+      // handled by effect above
+    }
   };
 
-  // handle otp typing
   const handleOtpChange = (index, value) => {
     if (!/^\d*$/.test(value)) return;
     const newOtp = [...otp];
     newOtp[index] = value;
     setOtp(newOtp);
-
-    if (value && index < 3) otpInputs.current[index + 1].focus();
+    if (value && index < 3) otpInputs.current[index + 1]?.focus();
   };
 
   const handleOtpKeyDown = (index, e) => {
-    if (e.key === "Backspace" && !otp[index] && index > 0)
-      otpInputs.current[index - 1].focus();
+    if (e.key === "Backspace" && !otp[index] && index > 0) otpInputs.current[index - 1]?.focus();
   };
 
-  // verify otp
   const handleOtpSubmit = async (e) => {
     e.preventDefault();
     const otpString = otp.join("");
@@ -95,7 +89,9 @@ const Login = () => {
     }
     try {
       await verifyAdmin({ email, otp: otpString }).unwrap();
-    } catch {}
+    } catch (err) {
+      // handled by effect above
+    }
   };
 
   const handleResendOtp = async () => {
@@ -105,6 +101,8 @@ const Login = () => {
       await loginAdmin({ email }).unwrap();
       setCountdown(60);
       toast.success("New OTP sent!");
+    } catch (err) {
+      toast.error("Failed to resend OTP");
     } finally {
       setIsResending(false);
     }

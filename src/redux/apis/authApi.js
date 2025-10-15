@@ -4,7 +4,12 @@ export const authApi = createApi({
     reducerPath: "authApi",
     baseQuery: fetchBaseQuery({
         baseUrl: `${import.meta.env.VITE_BACKEND_URL}/api/v1/adminAuth`,
-        credentials: "include"
+        credentials: "include",
+        prepareHeaders: (headers) => {
+            const token = localStorage.getItem("token");
+            if (token) headers.set("Authorization", `Bearer ${token}`);
+            return headers;
+        },
     }),
     tagTypes: ["auth"],
     endpoints: (builder) => ({
@@ -24,13 +29,13 @@ export const authApi = createApi({
                 body: otpData,
             }),
             invalidatesTags: ["auth"],
-           transformResponse: (response) => {
-    if (response?.admin && response?.token) {
-      localStorage.setItem("admin", JSON.stringify(response.admin));
-      localStorage.setItem("token", response.token);  
-    }
-    return response;
-  },
+            transformResponse: (response) => {
+                if (response?.admin && response?.token) {
+                    localStorage.setItem("admin", JSON.stringify(response.admin));
+                    localStorage.setItem("token", response.token);
+                }
+                return response;
+            },
         }),
 
         logoutAdmin: builder.mutation({

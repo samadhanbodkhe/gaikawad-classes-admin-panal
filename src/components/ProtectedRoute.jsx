@@ -1,21 +1,15 @@
 import React, { useEffect } from "react";
 import { Navigate } from "react-router-dom";
-import { useDispatch } from "react-redux";
-import { useVerifyAdminTokenQuery } from "../redux/apis/authApi";
 import { toast } from "react-toastify";
+import { useVerifyTokenQuery } from "../redux/apis/authApi";
 
 const ProtectedRoute = ({ children }) => {
-  const dispatch = useDispatch();
   const token = localStorage.getItem("token");
-  const admin = JSON.parse(localStorage.getItem("admin"));
+  const admin = JSON.parse(localStorage.getItem("admin") || "null");
 
-  // ⛔ No token or admin => go to login
-  if (!token || !admin) {
-    return <Navigate to="/login" replace />;
-  }
+  if (!token || !admin) return <Navigate to="/login" replace />;
 
-  // 🧠 Call backend to verify token validity
-  const { data, error, isLoading } = useVerifyAdminTokenQuery();
+  const { data, error, isLoading } = useVerifyTokenQuery();
 
   useEffect(() => {
     if (error) {
