@@ -22,6 +22,7 @@ const Leaverequest = () => {
   const [showViewModal, setShowViewModal] = useState(false);
   const [showActionModal, setShowActionModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
+  const [actionType, setActionType] = useState(""); // "approve" or "reject"
 
   // RTK Query hooks
   const { 
@@ -31,7 +32,7 @@ const Leaverequest = () => {
     refetch 
   } = useGetLeaveRequestsQuery({ limit: 100 });
 
-  const [processLeaveRequest] = useProcessLeaveRequestMutation();
+  const [processLeaveRequest, { isLoading: isProcessing }] = useProcessLeaveRequestMutation();
 
   // Transform API data
   const leaveRequests = leaveRequestsData?.leaveRequests?.map(request => ({
@@ -69,28 +70,30 @@ const Leaverequest = () => {
     rejected: leaveRequests.filter(req => req.status === "rejected").length
   };
 
-  // Handle status change with API call
-  const handleStatusChange = async (id, newStatus) => {
-    if (newStatus === "rejected") {
-      setSelectedRequest(leaveRequests.find(req => req.id === id));
-      setShowActionModal(true);
-      return;
-    }
-
-    if (window.confirm(`Are you sure you want to ${newStatus} this leave request?`)) {
+  // Handle approve action
+  const handleApprove = async (id) => {
+    if (window.confirm("Are you sure you want to approve this leave request?")) {
       try {
         await processLeaveRequest({ 
           id, 
-          status: newStatus.charAt(0).toUpperCase() + newStatus.slice(1) 
+          status: "Approved" 
         }).unwrap();
         
-        alert(`Leave request ${newStatus} successfully!`);
+        alert("Leave request approved successfully!");
         refetch();
       } catch (error) {
-        console.error("Failed to process leave request:", error);
-        alert("Failed to process leave request. Please try again.");
+        console.error("Failed to approve leave request:", error);
+        alert("Failed to approve leave request. Please try again.");
       }
     }
+  };
+
+  // Handle reject action - opens modal for reason
+  const handleReject = (id) => {
+    const request = leaveRequests.find(req => req.id === id);
+    setSelectedRequest(request);
+    setActionType("reject");
+    setShowActionModal(true);
   };
 
   // Handle rejection with reason
@@ -103,13 +106,15 @@ const Leaverequest = () => {
     try {
       await processLeaveRequest({ 
         id: selectedRequest.id, 
-        status: "Rejected" 
+        status: "Rejected",
+        rejectionReason: rejectionReason // Make sure backend accepts this field
       }).unwrap();
       
       alert("Leave request rejected successfully!");
       setShowActionModal(false);
       setRejectionReason("");
       setSelectedRequest(null);
+      setActionType("");
       refetch();
     } catch (error) {
       console.error("Failed to reject leave request:", error);
@@ -358,18 +363,21 @@ const Leaverequest = () => {
                         <FaEye className="w-4 h-4" />
                       </button>
                       
+                      {/* APPROVE AND REJECT BUTTONS - Only show for pending requests */}
                       {request.status === "pending" && (
                         <>
                           <button
-                            onClick={() => handleStatusChange(request.id, "approved")}
-                            className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors"
+                            onClick={() => handleApprove(request.id)}
+                            disabled={isProcessing}
+                            className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Approve Leave"
                           >
                             <FaCheckCircle className="w-4 h-4" />
                           </button>
                           <button
-                            onClick={() => handleStatusChange(request.id, "rejected")}
-                            className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
+                            onClick={() => handleReject(request.id)}
+                            disabled={isProcessing}
+                            className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Reject Leave"
                           >
                             <FaTimesCircle className="w-4 h-4" />
@@ -496,25 +504,28 @@ const Leaverequest = () => {
               )}
             </div>
 
+            {/* APPROVE AND REJECT BUTTONS IN MODAL */}
             <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
               {selectedRequest.status === "pending" && (
                 <>
                   <button
                     onClick={() => {
-                      handleStatusChange(selectedRequest.id, "approved");
+                      handleApprove(selectedRequest.id);
                       setShowViewModal(false);
                     }}
-                    className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors"
+                    disabled={isProcessing}
+                    className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    Approve
+                    {isProcessing ? "Processing..." : "Approve"}
                   </button>
                   <button
                     onClick={() => {
-                      setSelectedRequest(selectedRequest);
+                      setActionType("reject");
                       setShowActionModal(true);
                       setShowViewModal(false);
                     }}
-                    className="px-6 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors"
+                    disabled={isProcessing}
+                    className="px-6 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Reject
                   </button>
@@ -537,25 +548,32 @@ const Leaverequest = () => {
           <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
             <div className="px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
-                Reject Leave Request
+                {actionType === "reject" ? "Reject Leave Request" : "Confirm Action"}
               </h3>
             </div>
             
             <div className="p-6">
               <p className="text-gray-600 mb-4">
-                Rejecting leave request for <strong>{selectedRequest.teacher}</strong>
+                {actionType === "reject" 
+                  ? `Rejecting leave request for <strong>${selectedRequest.teacher}</strong>`
+                  : `Are you sure you want to ${actionType} this leave request?`
+                }
               </p>
               
-              <label className="text-sm font-medium text-gray-700 block mb-2">
-                Reason for rejection:
-              </label>
-              <textarea
-                value={rejectionReason}
-                onChange={(e) => setRejectionReason(e.target.value)}
-                placeholder="Please provide a reason for rejection..."
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
-                rows="4"
-              />
+              {actionType === "reject" && (
+                <>
+                  <label className="text-sm font-medium text-gray-700 block mb-2">
+                    Reason for rejection:
+                  </label>
+                  <textarea
+                    value={rejectionReason}
+                    onChange={(e) => setRejectionReason(e.target.value)}
+                    placeholder="Please provide a reason for rejection..."
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    rows="4"
+                  />
+                </>
+              )}
             </div>
 
             <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
@@ -564,21 +582,22 @@ const Leaverequest = () => {
                   setShowActionModal(false);
                   setRejectionReason("");
                   setSelectedRequest(null);
+                  setActionType("");
                 }}
                 className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Cancel
               </button>
               <button
-                onClick={handleRejectWithReason}
-                disabled={!rejectionReason.trim()}
+                onClick={actionType === "reject" ? handleRejectWithReason : () => {}}
+                disabled={actionType === "reject" && !rejectionReason.trim()}
                 className={`px-6 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
-                  !rejectionReason.trim() 
-                    ? 'bg-gray-400 cursor-not-allowed' 
-                    : 'bg-red-600 hover:bg-red-700'
+                  actionType === "reject" 
+                    ? (!rejectionReason.trim() ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700')
+                    : 'bg-green-600 hover:bg-green-700'
                 }`}
               >
-                Confirm Rejection
+                {actionType === "reject" ? "Confirm Rejection" : "Confirm"}
               </button>
             </div>
           </div>
