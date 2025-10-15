@@ -43,24 +43,23 @@ export default function Schedule() {
 
   const [errors, setErrors] = useState({});
 
-  // Get current date and time for default values
-  const getCurrentDateTime = () => {
+  // Get current date for default
+  const getCurrentDate = () => {
     const now = new Date();
-    const date = now.toISOString().split('T')[0]; // YYYY-MM-DD
-    const startTime = "09:00"; // Default start time 9:00 AM
-    const endTime = "10:00";   // Default end time 10:00 AM
-    
-    return { date, startTime, endTime };
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
   };
 
   useEffect(() => {
-    const { date, startTime, endTime } = getCurrentDateTime();
+    const currentDate = getCurrentDate();
     if (!editingSchedule && modalOpen) {
       setFormData(prev => ({
         ...prev,
-        scheduleDate: date,
-        startTime: startTime,
-        endTime: endTime
+        scheduleDate: currentDate,
+        startTime: "14:00", // 2:00 PM default
+        endTime: "16:00"    // 4:00 PM default
       }));
     }
   }, [modalOpen, editingSchedule]);
@@ -72,11 +71,11 @@ export default function Schedule() {
     if (schedule) {
       // Extract date and time from existing schedule for editing
       const startDate = schedule.startTime ? 
-        new Date(schedule.startTime).toISOString().split('T')[0] : "";
+        new Date(schedule.startTime).toLocaleDateString('en-CA') : "";
       const startTime = schedule.startTime ? 
-        new Date(schedule.startTime).toTimeString().slice(0, 5) : "";
+        new Date(schedule.startTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }) : "";
       const endTime = schedule.endTime ? 
-        new Date(schedule.endTime).toTimeString().slice(0, 5) : "";
+        new Date(schedule.endTime).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false }) : "";
 
       setFormData({
         teacherId: schedule.teacherId?._id || "",
@@ -89,14 +88,14 @@ export default function Schedule() {
         room: schedule.room || "",
       });
     } else {
-      const { date, startTime, endTime } = getCurrentDateTime();
+      const currentDate = getCurrentDate();
       setFormData({
         teacherId: "",
         batchName: "",
         subject: "",
-        scheduleDate: date,
-        startTime: startTime,
-        endTime: endTime,
+        scheduleDate: currentDate,
+        startTime: "14:00",
+        endTime: "16:00",
         mode: "offline",
         room: "",
       });
@@ -113,6 +112,15 @@ export default function Schedule() {
     if (!formData.scheduleDate) newErrors.scheduleDate = "Date is required";
     if (!formData.startTime) newErrors.startTime = "Start time is required";
     if (!formData.endTime) newErrors.endTime = "End time is required";
+    
+    // Validate time format (HH:MM)
+    const timeRegex = /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (formData.startTime && !timeRegex.test(formData.startTime)) {
+      newErrors.startTime = "Invalid time format (HH:MM)";
+    }
+    if (formData.endTime && !timeRegex.test(formData.endTime)) {
+      newErrors.endTime = "Invalid time format (HH:MM)";
+    }
     
     if (formData.startTime && formData.endTime) {
       if (formData.startTime >= formData.endTime) {
@@ -437,38 +445,42 @@ export default function Schedule() {
                   )}
                 </div>
 
-                {/* Time Selection */}
+                {/* Time Selection - Simple Inputs */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Start Time *
+                      Start Time * (24-hour format)
                     </label>
                     <input
-                      type="time"
+                      type="text"
+                      placeholder="HH:MM (e.g., 14:00 for 2 PM)"
                       value={formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                       className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                         errors.startTime || errors.time ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
+                    <p className="text-xs text-gray-500 mt-1">Format: HH:MM (24-hour)</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      End Time *
+                      End Time * (24-hour format)
                     </label>
                     <input
-                      type="time"
+                      type="text"
+                      placeholder="HH:MM (e.g., 16:00 for 4 PM)"
                       value={formData.endTime}
                       onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                       className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                         errors.endTime || errors.time ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
+                    <p className="text-xs text-gray-500 mt-1">Format: HH:MM (24-hour)</p>
                   </div>
                 </div>
                 {(errors.startTime || errors.endTime || errors.time) && (
                   <p className="text-red-500 text-sm">
-                    {errors.time || "Please select valid start and end times"}
+                    {errors.time || errors.startTime || errors.endTime || "Please select valid start and end times"}
                   </p>
                 )}
 
