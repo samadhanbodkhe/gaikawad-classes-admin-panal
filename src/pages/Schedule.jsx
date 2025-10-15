@@ -1,4 +1,3 @@
-// src/pages/Schedule.jsx
 import React, { useState, useEffect } from "react";
 import {
   useGetAllSchedulesQuery,
@@ -7,49 +6,27 @@ import {
   useDeleteScheduleMutation,
   useGetAllTeachersQuery,
 } from "../redux/apis/scheduleApi";
-import { Loader2, Edit, Trash2, PlusCircle, Info } from "lucide-react";
+import { Loader2, Edit, Trash2, Plus, Calendar, Clock, User, Book } from "lucide-react";
 import { toast } from "react-toastify";
 
-// Format date in IST for display
-const formatIST = (dateString) => {
-  if (!dateString) return "-";
-  return new Date(dateString).toLocaleString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: true,
-  });
-};
-
-// Convert IST datetime-local input to ISO string
-const toISOFromInput = (input) => {
-  const [date, time] = input.split("T");
-  const [year, month, day] = date.split("-");
-  const [hour, minute] = time.split(":");
-  const dateObj = new Date(Date.UTC(year, month - 1, day, hour - 5, minute - 30));
-  return dateObj.toISOString();
-};
-
-// Get current datetime-local for input (IST)
-const getCurrentDateTimeForInput = () => {
-  const now = new Date();
-  const tzOffset = 5 * 60 + 30; // IST offset in minutes
-  const local = new Date(now.getTime() + tzOffset * 60000);
-  return local.toISOString().slice(0, 16);
-};
-
 export default function Schedule() {
-  const { data: schedulesData, isLoading: loadingSchedules, refetch } = useGetAllSchedulesQuery();
-  const { data: teachersData, isLoading: loadingTeachers } = useGetAllTeachersQuery();
+  const { 
+    data: schedulesData, 
+    isLoading: loadingSchedules, 
+    refetch 
+  } = useGetAllSchedulesQuery();
+  
+  const { 
+    data: teachersData, 
+    isLoading: loadingTeachers 
+  } = useGetAllTeachersQuery();
 
   const [createSchedule, { isLoading: creating }] = useCreateScheduleMutation();
   const [updateSchedule, { isLoading: updating }] = useUpdateScheduleMutation();
   const [deleteSchedule, { isLoading: deleting }] = useDeleteScheduleMutation();
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [selectedTeacher, setSelectedTeacher] = useState("");
 
@@ -57,31 +34,65 @@ export default function Schedule() {
     teacherId: "",
     batchName: "",
     subject: "",
-    startTime: getCurrentDateTimeForInput(),
-    endTime: getCurrentDateTimeForInput(),
+    startTime: "",
+    endTime: "",
     mode: "offline",
     room: "",
   });
 
+  const [errors, setErrors] = useState({});
+
+  // Get current time in local timezone for input
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    // Add 1 hour buffer for end time
+    const endTime = new Date(now.getTime() + 60 * 60 * 1000);
+    
+    return {
+      start: now.toISOString().slice(0, 16),
+      end: endTime.toISOString().slice(0, 16)
+    };
+  };
+
+  useEffect(() => {
+    const times = getCurrentDateTime();
+    if (!editingSchedule) {
+      setFormData(prev => ({
+        ...prev,
+        startTime: times.start,
+        endTime: times.end
+      }));
+    }
+  }, [modalOpen, editingSchedule]);
+
   const openModal = (schedule = null) => {
     setEditingSchedule(schedule);
+    setErrors({});
+    
     if (schedule) {
+      // Convert stored dates to local timezone for editing
+      const startTime = schedule.startTime ? 
+        new Date(schedule.startTime).toISOString().slice(0, 16) : "";
+      const endTime = schedule.endTime ? 
+        new Date(schedule.endTime).toISOString().slice(0, 16) : "";
+
       setFormData({
         teacherId: schedule.teacherId?._id || "",
-        batchName: schedule.batchName,
-        subject: schedule.subject,
-        startTime: schedule.startTimeIST?.slice(0, 16) || getCurrentDateTimeForInput(),
-        endTime: schedule.endTimeIST?.slice(0, 16) || getCurrentDateTimeForInput(),
-        mode: schedule.mode,
+        batchName: schedule.batchName || "",
+        subject: schedule.subject || "",
+        startTime: startTime,
+        endTime: endTime,
+        mode: schedule.mode || "offline",
         room: schedule.room || "",
       });
     } else {
+      const times = getCurrentDateTime();
       setFormData({
         teacherId: "",
         batchName: "",
         subject: "",
-        startTime: getCurrentDateTimeForInput(),
-        endTime: getCurrentDateTimeForInput(),
+        startTime: times.start,
+        endTime: times.end,
         mode: "offline",
         room: "",
       });
@@ -89,20 +100,40 @@ export default function Schedule() {
     setModalOpen(true);
   };
 
+  const validateForm = () => {
+    const newErrors = {};
+    
+    if (!formData.teacherId) newErrors.teacherId = "Please select a teacher";
+    if (!formData.batchName?.trim()) newErrors.batchName = "Batch name is required";
+    if (!formData.subject?.trim()) newErrors.subject = "Subject is required";
+    if (!formData.startTime) newErrors.startTime = "Start time is required";
+    if (!formData.endTime) newErrors.endTime = "End time is required";
+    
+    if (formData.startTime && formData.endTime) {
+      if (new Date(formData.startTime) >= new Date(formData.endTime)) {
+        newErrors.time = "End time must be after start time";
+      }
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    if (!validateForm()) return;
+
     try {
-      const payload = {
-        ...formData,
-        startTime: toISOFromInput(formData.startTime),
-        endTime: toISOFromInput(formData.endTime),
-      };
       if (editingSchedule) {
-        await updateSchedule({ id: editingSchedule._id, ...payload }).unwrap();
-        toast.success("Schedule updated!");
+        await updateSchedule({ 
+          id: editingSchedule._id, 
+          ...formData 
+        }).unwrap();
+        toast.success("Schedule updated successfully!");
       } else {
-        await createSchedule(payload).unwrap();
-        toast.success("Schedule created!");
+        await createSchedule(formData).unwrap();
+        toast.success("Schedule created successfully!");
       }
       refetch();
       setModalOpen(false);
@@ -112,111 +143,361 @@ export default function Schedule() {
   };
 
   const handleDelete = async (id) => {
-    if (window.confirm("Are you sure?")) {
+    if (window.confirm("Are you sure you want to delete this schedule?")) {
       try {
         await deleteSchedule(id).unwrap();
-        toast.success("Deleted successfully!");
+        toast.success("Schedule deleted successfully!");
         refetch();
-      } catch {
-        toast.error("Failed to delete");
+      } catch (err) {
+        toast.error(err?.data?.message || "Failed to delete schedule!");
       }
     }
   };
 
-  if (loadingSchedules || loadingTeachers)
+  if (loadingSchedules || loadingTeachers) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="animate-spin w-10 h-10 text-blue-600" />
+      <div className="flex justify-center items-center h-64">
+        <Loader2 className="animate-spin w-8 h-8 text-blue-600" />
+        <span className="ml-2 text-gray-600">Loading schedules...</span>
       </div>
     );
+  }
+
+  const schedules = schedulesData?.schedules || [];
+  const filteredSchedules = selectedTeacher 
+    ? schedules.filter(sch => sch.teacherId?._id === selectedTeacher)
+    : schedules;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">📅 Schedules</h1>
-        <button onClick={() => openModal()} className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2">
-          <PlusCircle /> Add
-        </button>
+    <div className="min-h-screen bg-gray-50 p-4">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-800 mb-2">Class Schedules</h1>
+        <p className="text-gray-600">Manage and view all teaching schedules</p>
       </div>
 
-      <div className="mb-4">
-        <label>Filter by Teacher: </label>
-        <select
-          value={selectedTeacher}
-          onChange={(e) => setSelectedTeacher(e.target.value)}
-          className="border p-2 rounded"
-        >
-          <option value="">All</option>
-          {teachersData?.map((t) => (
-            <option key={t._id} value={t._id}>{t.name}</option>
-          ))}
-        </select>
-      </div>
-
-      <div className="overflow-x-auto bg-white shadow rounded-lg">
-        <table className="min-w-full">
-          <thead className="bg-gray-100">
-            <tr>
-              <th className="p-2">Teacher</th>
-              <th className="p-2">Batch</th>
-              <th className="p-2">Subject</th>
-              <th className="p-2">Start (IST)</th>
-              <th className="p-2">End (IST)</th>
-              <th className="p-2">Mode</th>
-              <th className="p-2">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {(schedulesData?.schedules || [])
-              .filter(s => !selectedTeacher || s.teacherId?._id === selectedTeacher)
-              .map(s => (
-                <tr key={s._id} className="border-b hover:bg-gray-50">
-                  <td className="p-2">{s.teacherId?.name}</td>
-                  <td className="p-2">{s.batchName}</td>
-                  <td className="p-2">{s.subject}</td>
-                  <td className="p-2">{formatIST(s.startTime)}</td>
-                  <td className="p-2">{formatIST(s.endTime)}</td>
-                  <td className="p-2 capitalize">{s.mode}</td>
-                  <td className="p-2 flex gap-2">
-                    <button onClick={() => openModal(s)} className="text-blue-600"><Edit /></button>
-                    <button onClick={() => handleDelete(s._id)} className="text-red-600"><Trash2 /></button>
-                  </td>
-                </tr>
+      {/* Controls */}
+      <div className="bg-white rounded-lg shadow-sm p-4 mb-6">
+        <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
+          <div className="flex-1">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Filter by Teacher
+            </label>
+            <select
+              value={selectedTeacher}
+              onChange={(e) => setSelectedTeacher(e.target.value)}
+              className="w-full sm:w-64 border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            >
+              <option value="">All Teachers</option>
+              {teachersData?.teachers?.map((teacher) => (
+                <option key={teacher._id} value={teacher._id}>
+                  {teacher.name}
+                </option>
               ))}
-          </tbody>
-        </table>
+            </select>
+          </div>
+          
+          <button
+            onClick={() => openModal()}
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add Schedule
+          </button>
+        </div>
       </div>
 
-      {modalOpen && (
-        <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-40">
-          <div className="bg-white p-4 rounded w-[90%] max-w-md">
-            <h2 className="font-bold mb-2">{editingSchedule ? "Edit" : "Add"} Schedule</h2>
-            <form onSubmit={handleSubmit} className="space-y-2">
-              <select
-                value={formData.teacherId}
-                onChange={(e) => setFormData({...formData, teacherId: e.target.value})}
-                required
-                className="border p-2 w-full rounded"
-              >
-                <option value="">Select Teacher</option>
-                {teachersData?.map(t => <option key={t._id} value={t._id}>{t.name}</option>)}
-              </select>
-              <input type="text" placeholder="Batch Name" value={formData.batchName} onChange={e => setFormData({...formData, batchName: e.target.value})} className="border p-2 w-full rounded" required />
-              <input type="text" placeholder="Subject" value={formData.subject} onChange={e => setFormData({...formData, subject: e.target.value})} className="border p-2 w-full rounded" required />
-              <input type="datetime-local" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} className="border p-2 w-full rounded" required />
-              <input type="datetime-local" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} className="border p-2 w-full rounded" required />
-              <select value={formData.mode} onChange={e => setFormData({...formData, mode: e.target.value})} className="border p-2 w-full rounded">
-                <option value="offline">Offline</option>
-                <option value="online">Online</option>
-              </select>
-              {formData.mode === "offline" && (
-                <input type="text" placeholder="Room" value={formData.room} onChange={e => setFormData({...formData, room: e.target.value})} className="border p-2 w-full rounded" />
-              )}
-              <div className="flex justify-end gap-2">
-                <button type="button" onClick={() => setModalOpen(false)} className="px-2 py-1 border rounded">Cancel</button>
-                <button type="submit" className="px-2 py-1 bg-blue-600 text-white rounded">{creating || updating ? "Saving..." : "Save"}</button>
+      {/* Schedule Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredSchedules.map((schedule) => (
+          <div key={schedule._id} className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex justify-between items-start mb-3">
+              <div>
+                <h3 className="font-semibold text-gray-800">{schedule.batchName}</h3>
+                <p className="text-sm text-gray-600">{schedule.subject}</p>
               </div>
-            </form>
+              <span className={`px-2 py-1 text-xs rounded-full ${
+                schedule.mode === 'online' 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-blue-100 text-blue-800'
+              }`}>
+                {schedule.mode}
+              </span>
+            </div>
+
+            <div className="space-y-2 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <User className="w-4 h-4" />
+                <span>{schedule.teacherId?.name}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                <span>{schedule.displayStartTime}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4" />
+                <span>{schedule.displayEndTime}</span>
+              </div>
+              {schedule.room && (
+                <div className="flex items-center gap-2">
+                  <Book className="w-4 h-4" />
+                  <span>Room: {schedule.room}</span>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-gray-100">
+              <button
+                onClick={() => {
+                  setDetailModalOpen(true);
+                  setEditingSchedule(schedule);
+                }}
+                className="text-gray-600 hover:text-gray-800 p-1"
+                title="View Details"
+              >
+                <Calendar className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => openModal(schedule)}
+                className="text-blue-600 hover:text-blue-800 p-1"
+                title="Edit"
+              >
+                <Edit className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handleDelete(schedule._id)}
+                className="text-red-600 hover:text-red-800 p-1"
+                title="Delete"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {filteredSchedules.length === 0 && (
+        <div className="text-center py-12">
+          <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <p className="text-gray-500 text-lg">No schedules found</p>
+          <p className="text-gray-400 text-sm mt-1">
+            {selectedTeacher ? "Try changing the filter" : "Create your first schedule"}
+          </p>
+        </div>
+      )}
+
+      {/* Detail Modal */}
+      {detailModalOpen && editingSchedule && (
+        <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-lg w-full max-w-md mx-4">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4">Schedule Details</h2>
+              <div className="space-y-3">
+                <div>
+                  <label className="font-medium text-gray-700">Teacher:</label>
+                  <p className="mt-1">{editingSchedule.teacherId?.name}</p>
+                </div>
+                <div>
+                  <label className="font-medium text-gray-700">Email:</label>
+                  <p className="mt-1">{editingSchedule.teacherId?.email}</p>
+                </div>
+                <div>
+                  <label className="font-medium text-gray-700">Batch:</label>
+                  <p className="mt-1">{editingSchedule.batchName}</p>
+                </div>
+                <div>
+                  <label className="font-medium text-gray-700">Subject:</label>
+                  <p className="mt-1">{editingSchedule.subject}</p>
+                </div>
+                <div>
+                  <label className="font-medium text-gray-700">Start Time:</label>
+                  <p className="mt-1">{editingSchedule.displayStartTime}</p>
+                </div>
+                <div>
+                  <label className="font-medium text-gray-700">End Time:</label>
+                  <p className="mt-1">{editingSchedule.displayEndTime}</p>
+                </div>
+                <div>
+                  <label className="font-medium text-gray-700">Mode:</label>
+                  <p className="mt-1 capitalize">{editingSchedule.mode}</p>
+                </div>
+                {editingSchedule.room && (
+                  <div>
+                    <label className="font-medium text-gray-700">Room:</label>
+                    <p className="mt-1">{editingSchedule.room}</p>
+                  </div>
+                )}
+              </div>
+              <div className="flex justify-end mt-6">
+                <button
+                  onClick={() => setDetailModalOpen(false)}
+                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Modal */}
+      {modalOpen && (
+        <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-lg w-full max-w-md mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-xl font-semibold mb-4">
+                {editingSchedule ? "Edit Schedule" : "Add New Schedule"}
+              </h2>
+              
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Teacher Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Teacher *
+                  </label>
+                  <select
+                    value={formData.teacherId}
+                    onChange={(e) => setFormData({ ...formData, teacherId: e.target.value })}
+                    className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      errors.teacherId ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  >
+                    <option value="">Select Teacher</option>
+                    {teachersData?.teachers?.map((teacher) => (
+                      <option key={teacher._id} value={teacher._id}>
+                        {teacher.name} ({teacher.email})
+                      </option>
+                    ))}
+                  </select>
+                  {errors.teacherId && (
+                    <p className="text-red-500 text-sm mt-1">{errors.teacherId}</p>
+                  )}
+                </div>
+
+                {/* Batch Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Batch Name *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Batch A, Class 10th"
+                    value={formData.batchName}
+                    onChange={(e) => setFormData({ ...formData, batchName: e.target.value })}
+                    className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      errors.batchName ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                  {errors.batchName && (
+                    <p className="text-red-500 text-sm mt-1">{errors.batchName}</p>
+                  )}
+                </div>
+
+                {/* Subject */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Subject *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g., Mathematics, Science"
+                    value={formData.subject}
+                    onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                    className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      errors.subject ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  />
+                  {errors.subject && (
+                    <p className="text-red-500 text-sm mt-1">{errors.subject}</p>
+                  )}
+                </div>
+
+                {/* Time Selection */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Start Time *
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={formData.startTime}
+                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors.startTime || errors.time ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      End Time *
+                    </label>
+                    <input
+                      type="datetime-local"
+                      value={formData.endTime}
+                      onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors.endTime || errors.time ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    />
+                  </div>
+                </div>
+                {(errors.startTime || errors.endTime || errors.time) && (
+                  <p className="text-red-500 text-sm">
+                    {errors.time || "Please select valid start and end times"}
+                  </p>
+                )}
+
+                {/* Mode Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Class Mode
+                  </label>
+                  <select
+                    value={formData.mode}
+                    onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="offline">Offline</option>
+                    <option value="online">Online</option>
+                  </select>
+                </div>
+
+                {/* Room (only for offline) */}
+                {formData.mode === "offline" && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Room Number
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="e.g., Room 101, Lab A"
+                      value={formData.room}
+                      onChange={(e) => setFormData({ ...formData, room: e.target.value })}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                )}
+
+                {/* Action Buttons */}
+                <div className="flex justify-end gap-3 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setModalOpen(false)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={creating || updating}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    {creating || updating ? "Saving..." : "Save Schedule"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

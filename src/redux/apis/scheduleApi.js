@@ -15,8 +15,12 @@ export const scheduleApi = createApi({
     tagTypes: ["Schedule", "Teacher"],
     endpoints: (builder) => ({
         getAllSchedules: builder.query({
-            query: () => "/getSchedules",
+            query: (params = {}) => ({
+                url: '/getSchedules',
+                params
+            }),
             providesTags: ["Schedule"],
+
         }),
         createSchedule: builder.mutation({
             query: (data) => ({
