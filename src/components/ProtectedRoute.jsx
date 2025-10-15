@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { Navigate } from "react-router-dom";
 import { toast } from "react-toastify";
-import { useVerifyTokenQuery } from "../redux/apis/authApi";
+import { useVerifyAdminTokenQuery } from "../redux/apis/authApi";
 
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem("token");
@@ -9,7 +9,7 @@ const ProtectedRoute = ({ children }) => {
 
   if (!token || !admin) return <Navigate to="/login" replace />;
 
-  const { data, error, isLoading } = useVerifyTokenQuery();
+  const { data, error, isLoading } = useVerifyAdminTokenQuery();
 
   useEffect(() => {
     if (error) {
