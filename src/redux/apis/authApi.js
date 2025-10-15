@@ -43,13 +43,21 @@ export const authApi = createApi({
                 return response;
             },
         }),
-         getAdminProfile: builder.query({
-      query: () => ({
-        url: "/getAdminProfile",
-        method: "GET",
-      }),
-      providesTags: ["auth"],
-    }),
+        getAdminProfile: builder.query({
+            query: () => ({
+                url: "/getAdminProfile",
+                method: "GET",
+            }),
+            providesTags: ["auth"],
+        }),
+        verifyAdminToken: builder.query({
+            query: () => ({
+                url: "/verifyToken",
+                method: "GET",
+            }),
+            providesTags: ["Auth"],
+        }),
+
     }),
 });
 
@@ -57,5 +65,6 @@ export const {
     useLoginAdminMutation,
     useVerifyAdminMutation,
     useLogoutAdminMutation,
-    useGetAdminProfileQuery
+    useGetAdminProfileQuery,
+    useVerifyAdminTokenQuery
 } = authApi;
