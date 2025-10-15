@@ -6,7 +6,7 @@ import {
   useDeleteScheduleMutation,
   useGetAllTeachersQuery,
 } from "../redux/apis/scheduleApi";
-import { Loader2, Edit, Trash2, Plus, Calendar, Clock, User, Book, ChevronDown } from "lucide-react";
+import { Loader2, Edit, Trash2, Plus, Calendar, Clock, User, Book } from "lucide-react";
 import { toast } from "react-toastify";
 
 export default function Schedule() {
@@ -43,17 +43,16 @@ export default function Schedule() {
 
   const [errors, setErrors] = useState({});
 
-  // Time options for dropdown (12-hour format)
+  // Time options in 12-hour Indian format
   const timeOptions = [
     "06:00 AM", "06:30 AM", "07:00 AM", "07:30 AM", "08:00 AM", "08:30 AM",
     "09:00 AM", "09:30 AM", "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM",
     "12:00 PM", "12:30 PM", "01:00 PM", "01:30 PM", "02:00 PM", "02:30 PM",
     "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM",
-    "06:00 PM", "06:30 PM", "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM",
-    "09:00 PM", "09:30 PM", "10:00 PM"
+    "06:00 PM", "06:30 PM", "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM"
   ];
 
-  // Get current date for default
+  // Get current date
   const getCurrentDate = () => {
     const now = new Date();
     const year = now.getFullYear();
@@ -79,31 +78,13 @@ export default function Schedule() {
     setErrors({});
     
     if (schedule) {
-      // Extract date and time from existing schedule for editing
-      const startDate = schedule.startTime ? 
-        new Date(schedule.startTime).toLocaleDateString('en-CA') : "";
-      
-      // Convert stored time to 12-hour format for display
-      const formatTimeForDisplay = (date) => {
-        if (!date) return "02:00 PM";
-        const d = new Date(date);
-        return d.toLocaleString('en-IN', {
-          hour: '2-digit',
-          minute: '2-digit',
-          hour12: true
-        }).toUpperCase();
-      };
-
-      const startTime = formatTimeForDisplay(schedule.startTime);
-      const endTime = formatTimeForDisplay(schedule.endTime);
-
       setFormData({
         teacherId: schedule.teacherId?._id || "",
         batchName: schedule.batchName || "",
         subject: schedule.subject || "",
-        scheduleDate: startDate,
-        startTime: startTime,
-        endTime: endTime,
+        scheduleDate: schedule.scheduleDate || "",
+        startTime: schedule.startTime || "02:00 PM",
+        endTime: schedule.endTime || "04:00 PM",
         mode: schedule.mode || "offline",
         room: schedule.room || "",
       });
@@ -132,16 +113,6 @@ export default function Schedule() {
     if (!formData.scheduleDate) newErrors.scheduleDate = "Date is required";
     if (!formData.startTime) newErrors.startTime = "Start time is required";
     if (!formData.endTime) newErrors.endTime = "End time is required";
-    
-    // Validate time order by converting to comparable format
-    if (formData.startTime && formData.endTime) {
-      const startIndex = timeOptions.indexOf(formData.startTime);
-      const endIndex = timeOptions.indexOf(formData.endTime);
-      
-      if (startIndex >= endIndex) {
-        newErrors.time = "End time must be after start time";
-      }
-    }
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -182,6 +153,13 @@ export default function Schedule() {
     }
   };
 
+  // Format date for display (DD/MM/YYYY)
+  const formatDisplayDate = (dateString) => {
+    if (!dateString) return "";
+    const [year, month, day] = dateString.split('-');
+    return `${day}/${month}/${year}`;
+  };
+
   if (loadingSchedules || loadingTeachers) {
     return (
       <div className="flex justify-center items-center h-64">
@@ -197,29 +175,29 @@ export default function Schedule() {
     : schedules;
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4">
+    <div className="min-h-screen bg-gray-50 p-6">
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-800 mb-2">Class Schedule Management</h1>
-        <p className="text-gray-600">Organize and manage teaching schedules efficiently</p>
+      <div className="mb-8">
+        <h1 className="text-3xl font-bold text-gray-800 mb-2">Class Schedule</h1>
+        <p className="text-gray-600">Manage all teaching schedules</p>
       </div>
 
       {/* Controls */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-6">
+      <div className="bg-white rounded-lg shadow-sm p-6 mb-8">
         <div className="flex flex-col lg:flex-row gap-4 justify-between items-start lg:items-center">
-          <div className="flex-1 w-full">
+          <div className="flex-1">
             <label className="block text-sm font-medium text-gray-700 mb-2">
               Filter by Teacher
             </label>
             <select
               value={selectedTeacher}
               onChange={(e) => setSelectedTeacher(e.target.value)}
-              className="w-full lg:w-80 border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+              className="w-full lg:w-80 border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
             >
               <option value="">All Teachers</option>
               {teachersData?.teachers?.map((teacher) => (
                 <option key={teacher._id} value={teacher._id}>
-                  {teacher.name} - {teacher.email}
+                  {teacher.name}
                 </option>
               ))}
             </select>
@@ -227,154 +205,98 @@ export default function Schedule() {
           
           <button
             onClick={() => openModal()}
-            className="bg-blue-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-all duration-200 shadow-sm hover:shadow-md"
+            className="bg-blue-600 text-white px-6 py-3 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors"
           >
             <Plus className="w-5 h-5" />
-            Create New Schedule
+            Add Schedule
           </button>
         </div>
       </div>
 
-      {/* Schedule Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-        {filteredSchedules.map((schedule) => (
-          <div key={schedule._id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 hover:shadow-md transition-shadow duration-200">
-            <div className="flex justify-between items-start mb-4">
-              <div>
-                <h3 className="font-bold text-gray-900 text-lg">{schedule.batchName}</h3>
-                <p className="text-gray-600 text-sm mt-1">{schedule.subject}</p>
-              </div>
-              <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                schedule.mode === 'online' 
-                  ? 'bg-green-100 text-green-800 border border-green-200' 
-                  : 'bg-blue-100 text-blue-800 border border-blue-200'
-              }`}>
-                {schedule.mode === 'online' ? '🖥️ Online' : '🏫 Offline'}
-              </span>
-            </div>
+      {/* Schedule Table */}
+      <div className="bg-white rounded-lg shadow-sm overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="min-w-full">
+            <thead className="bg-gray-50 border-b">
+              <tr>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Teacher</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Batch</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Subject</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Date</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Start Time</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">End Time</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Mode</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Room</th>
+                <th className="px-6 py-4 text-left text-sm font-medium text-gray-700">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {filteredSchedules.map((schedule) => (
+                <tr key={schedule._id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
+                    <div>
+                      <div className="font-medium text-gray-900">{schedule.teacherId?.name}</div>
+                      <div className="text-sm text-gray-500">{schedule.teacherId?.email}</div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{schedule.batchName}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{schedule.subject}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {formatDisplayDate(schedule.scheduleDate)}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{schedule.startTime}</td>
+                  <td className="px-6 py-4 text-sm text-gray-900">{schedule.endTime}</td>
+                  <td className="px-6 py-4">
+                    <span className={`inline-flex px-2 py-1 text-xs font-medium rounded-full ${
+                      schedule.mode === 'online' 
+                        ? 'bg-green-100 text-green-800' 
+                        : 'bg-blue-100 text-blue-800'
+                    }`}>
+                      {schedule.mode}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {schedule.room || "-"}
+                  </td>
+                  <td className="px-6 py-4">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => openModal(schedule)}
+                        className="text-blue-600 hover:text-blue-900 p-1"
+                        title="Edit"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(schedule._id)}
+                        className="text-red-600 hover:text-red-900 p-1"
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-            <div className="space-y-3 text-sm">
-              <div className="flex items-center gap-3 text-gray-700">
-                <User className="w-4 h-4 text-blue-500" />
-                <span className="font-medium">{schedule.teacherId?.name}</span>
-              </div>
-              <div className="flex items-center gap-3 text-gray-700">
-                <Clock className="w-4 h-4 text-green-500" />
-                <div>
-                  <div className="font-medium">Start: {schedule.displayStartTime}</div>
-                  <div className="font-medium">End: {schedule.displayEndTime}</div>
-                </div>
-              </div>
-              {schedule.room && (
-                <div className="flex items-center gap-3 text-gray-700">
-                  <Book className="w-4 h-4 text-purple-500" />
-                  <span>Room: <strong>{schedule.room}</strong></span>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-3 mt-6 pt-4 border-t border-gray-100">
-              <button
-                onClick={() => {
-                  setDetailModalOpen(true);
-                  setEditingSchedule(schedule);
-                }}
-                className="text-gray-500 hover:text-gray-700 p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                title="View Details"
-              >
-                <Calendar className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => openModal(schedule)}
-                className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
-                title="Edit Schedule"
-              >
-                <Edit className="w-4 h-4" />
-              </button>
-              <button
-                onClick={() => handleDelete(schedule._id)}
-                className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors"
-                title="Delete Schedule"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+        {filteredSchedules.length === 0 && (
+          <div className="text-center py-12">
+            <Calendar className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-gray-500 text-lg">No schedules found</p>
           </div>
-        ))}
+        )}
       </div>
-
-      {filteredSchedules.length === 0 && (
-        <div className="text-center py-16 bg-white rounded-xl border border-gray-200">
-          <Calendar className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <p className="text-gray-500 text-xl font-medium mb-2">No schedules found</p>
-          <p className="text-gray-400 text-sm">
-            {selectedTeacher ? "No schedules for selected teacher" : "Get started by creating your first schedule"}
-          </p>
-        </div>
-      )}
-
-      {/* Detail Modal */}
-      {detailModalOpen && editingSchedule && (
-        <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md">
-            <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Schedule Details</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="font-medium text-gray-700 text-sm">Teacher</label>
-                  <p className="mt-1 text-gray-900">{editingSchedule.teacherId?.name}</p>
-                </div>
-                <div>
-                  <label className="font-medium text-gray-700 text-sm">Email</label>
-                  <p className="mt-1 text-gray-900">{editingSchedule.teacherId?.email}</p>
-                </div>
-                <div>
-                  <label className="font-medium text-gray-700 text-sm">Batch</label>
-                  <p className="mt-1 text-gray-900">{editingSchedule.batchName}</p>
-                </div>
-                <div>
-                  <label className="font-medium text-gray-700 text-sm">Subject</label>
-                  <p className="mt-1 text-gray-900">{editingSchedule.subject}</p>
-                </div>
-                <div>
-                  <label className="font-medium text-gray-700 text-sm">Start Time</label>
-                  <p className="mt-1 text-gray-900">{editingSchedule.displayStartTime}</p>
-                </div>
-                <div>
-                  <label className="font-medium text-gray-700 text-sm">End Time</label>
-                  <p className="mt-1 text-gray-900">{editingSchedule.displayEndTime}</p>
-                </div>
-                <div>
-                  <label className="font-medium text-gray-700 text-sm">Mode</label>
-                  <p className="mt-1 text-gray-900 capitalize">{editingSchedule.mode}</p>
-                </div>
-                {editingSchedule.room && (
-                  <div>
-                    <label className="font-medium text-gray-700 text-sm">Room</label>
-                    <p className="mt-1 text-gray-900">{editingSchedule.room}</p>
-                  </div>
-                )}
-              </div>
-              <div className="flex justify-end mt-6">
-                <button
-                  onClick={() => setDetailModalOpen(false)}
-                  className="px-6 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors font-medium"
-                >
-                  Close
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Add/Edit Modal */}
       {modalOpen && (
         <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-50 z-50 p-4">
-          <div className="bg-white rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-6">
-                {editingSchedule ? "Edit Schedule" : "Create New Schedule"}
+              <h2 className="text-xl font-semibold mb-6">
+                {editingSchedule ? "Edit Schedule" : "Add New Schedule"}
               </h2>
               
               <form onSubmit={handleSubmit} className="space-y-6">
@@ -387,11 +309,11 @@ export default function Schedule() {
                     <select
                       value={formData.teacherId}
                       onChange={(e) => setFormData({ ...formData, teacherId: e.target.value })}
-                      className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white ${
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                         errors.teacherId ? 'border-red-500' : 'border-gray-300'
                       }`}
                     >
-                      <option value="">Select a teacher</option>
+                      <option value="">Select Teacher</option>
                       {teachersData?.teachers?.map((teacher) => (
                         <option key={teacher._id} value={teacher._id}>
                           {teacher.name} ({teacher.email})
@@ -413,7 +335,7 @@ export default function Schedule() {
                       placeholder="e.g., Batch A, Class 10th"
                       value={formData.batchName}
                       onChange={(e) => setFormData({ ...formData, batchName: e.target.value })}
-                      className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                         errors.batchName ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
@@ -434,7 +356,7 @@ export default function Schedule() {
                       placeholder="e.g., Mathematics, Science"
                       value={formData.subject}
                       onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
-                      className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                         errors.subject ? 'border-red-500' : 'border-gray-300'
                       }`}
                     />
@@ -452,7 +374,7 @@ export default function Schedule() {
                       type="date"
                       value={formData.scheduleDate}
                       onChange={(e) => setFormData({ ...formData, scheduleDate: e.target.value })}
-                      className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
                         errors.scheduleDate ? 'border-red-500' : 'border-gray-300'
                       }`}
                       min={new Date().toISOString().split('T')[0]}
@@ -469,47 +391,42 @@ export default function Schedule() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Start Time *
                     </label>
-                    <div className="relative">
-                      <select
-                        value={formData.startTime}
-                        onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                        className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
-                          errors.startTime || errors.time ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                      >
-                        {timeOptions.map((time) => (
-                          <option key={time} value={time}>{time}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    </div>
+                    <select
+                      value={formData.startTime}
+                      onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors.startTime ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    >
+                      {timeOptions.map((time) => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
+                    {errors.startTime && (
+                      <p className="text-red-500 text-sm mt-1">{errors.startTime}</p>
+                    )}
                   </div>
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       End Time *
                     </label>
-                    <div className="relative">
-                      <select
-                        value={formData.endTime}
-                        onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                        className={`w-full border rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 appearance-none bg-white ${
-                          errors.endTime || errors.time ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                      >
-                        {timeOptions.map((time) => (
-                          <option key={time} value={time}>{time}</option>
-                        ))}
-                      </select>
-                      <ChevronDown className="absolute right-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" />
-                    </div>
+                    <select
+                      value={formData.endTime}
+                      onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
+                      className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                        errors.endTime ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                    >
+                      {timeOptions.map((time) => (
+                        <option key={time} value={time}>{time}</option>
+                      ))}
+                    </select>
+                    {errors.endTime && (
+                      <p className="text-red-500 text-sm mt-1">{errors.endTime}</p>
+                    )}
                   </div>
                 </div>
-                {(errors.startTime || errors.endTime || errors.time) && (
-                  <p className="text-red-500 text-sm bg-red-50 p-3 rounded-lg">
-                    {errors.time || "Please select valid start and end times"}
-                  </p>
-                )}
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {/* Mode Selection */}
@@ -520,10 +437,10 @@ export default function Schedule() {
                     <select
                       value={formData.mode}
                       onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     >
-                      <option value="offline">🏫 Offline Class</option>
-                      <option value="online">🖥️ Online Class</option>
+                      <option value="offline">Offline</option>
+                      <option value="online">Online</option>
                     </select>
                   </div>
 
@@ -538,7 +455,7 @@ export default function Schedule() {
                         placeholder="e.g., Room 101, Lab A"
                         value={formData.room}
                         onChange={(e) => setFormData({ ...formData, room: e.target.value })}
-                        className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       />
                     </div>
                   )}
@@ -549,23 +466,16 @@ export default function Schedule() {
                   <button
                     type="button"
                     onClick={() => setModalOpen(false)}
-                    className="px-6 py-3 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors font-medium"
+                    className="px-6 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={creating || updating}
-                    className="px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors font-medium shadow-sm hover:shadow-md"
+                    className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    {creating || updating ? (
-                      <div className="flex items-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Saving...
-                      </div>
-                    ) : (
-                      editingSchedule ? "Update Schedule" : "Create Schedule"
-                    )}
+                    {creating || updating ? "Saving..." : "Save Schedule"}
                   </button>
                 </div>
               </form>
