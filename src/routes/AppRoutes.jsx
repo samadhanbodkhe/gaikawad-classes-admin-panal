@@ -17,7 +17,7 @@ import PublicRoute from "../components/PublicRoute";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import Shedule from "../pages/Shedule";
+import Schedule from "../pages/Schedule";
 
 const AppRoutes = () => {
   return (
@@ -42,7 +42,7 @@ const AppRoutes = () => {
           }
         >
           <Route index element={<Dashboard />} />
-          <Route path="schedule" element={<Shedule />} />
+          <Route path="schedule" element={<Schedule />} />
           <Route path="leaverequest" element={<Leaverequest />} />
           <Route path="teacherAR" element={<TeacherAR />} />
           <Route path="billing" element={<Billing />} />

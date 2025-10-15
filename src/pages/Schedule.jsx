@@ -1,3 +1,4 @@
+// src/pages/Schedule.jsx
 import React, { useState, useEffect } from "react";
 import {
   useGetAllSchedulesQuery,
@@ -32,7 +33,7 @@ const getCurrentDateTimeForInput = () => {
     .slice(0, 16);
 };
 
-export default function Shedule() {
+export default function Schedule() {
   const { data: schedulesData, isLoading: loadingSchedules, refetch } =
     useGetAllSchedulesQuery();
   const { data: teachersData, isLoading: loadingTeachers } =
@@ -72,10 +73,10 @@ export default function Shedule() {
         subject: schedule.subject,
         startTime: schedule.startTime
           ? new Date(schedule.startTime).toISOString().slice(0, 16)
-          : "",
+          : getCurrentDateTimeForInput(),
         endTime: schedule.endTime
           ? new Date(schedule.endTime).toISOString().slice(0, 16)
-          : "",
+          : getCurrentDateTimeForInput(),
         mode: schedule.mode,
         room: schedule.room || "",
       });
