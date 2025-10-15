@@ -9,6 +9,28 @@ import {
 import { Loader2, Edit, Trash2, PlusCircle, Info } from "lucide-react";
 import { toast } from "react-toastify";
 
+// Helper function to format date in IST
+const formatIST = (dateString) => {
+  if (!dateString) return "-";
+  return new Date(dateString).toLocaleString("en-IN", {
+    timeZone: "Asia/Kolkata",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: true
+  });
+};
+
+// Helper to get current date-time in correct format for datetime-local input
+const getCurrentDateTimeForInput = () => {
+  const now = new Date();
+  // Convert to local time string in correct format
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
+
 export default function Schedule() {
   const { data: schedulesData, isLoading: loadingSchedules, refetch } = useGetAllSchedulesQuery();
   const { data: teachersData, isLoading: loadingTeachers } = useGetAllTeachersQuery();
@@ -26,8 +48,8 @@ export default function Schedule() {
     teacherId: "",
     batchName: "",
     subject: "",
-    startTime: "",
-    endTime: "",
+    startTime: getCurrentDateTimeForInput(),
+    endTime: getCurrentDateTimeForInput(),
     mode: "offline",
     room: "",
   });
@@ -41,12 +63,13 @@ export default function Schedule() {
   const openModal = (schedule = null) => {
     setEditingSchedule(schedule);
     if (schedule) {
+      // For editing, use the original UTC times - they will be converted to local by the input
       setFormData({
         teacherId: schedule.teacherId?._id || "",
         batchName: schedule.batchName,
         subject: schedule.subject,
-        startTime: new Date(schedule.startTime).toISOString().slice(0, 16),
-        endTime: new Date(schedule.endTime).toISOString().slice(0, 16),
+        startTime: schedule.startTime ? new Date(schedule.startTime).toISOString().slice(0, 16) : "",
+        endTime: schedule.endTime ? new Date(schedule.endTime).toISOString().slice(0, 16) : "",
         mode: schedule.mode,
         room: schedule.room || "",
       });
@@ -55,8 +78,8 @@ export default function Schedule() {
         teacherId: "",
         batchName: "",
         subject: "",
-        startTime: "",
-        endTime: "",
+        startTime: getCurrentDateTimeForInput(),
+        endTime: getCurrentDateTimeForInput(),
         mode: "offline",
         room: "",
       });
@@ -139,8 +162,8 @@ export default function Schedule() {
               <th className="p-3 text-left">Email</th>
               <th className="p-3 text-left">Batch</th>
               <th className="p-3 text-left">Subject</th>
-              <th className="p-3 text-left">Start Time</th>
-              <th className="p-3 text-left">End Time</th>
+              <th className="p-3 text-left">Start Time (IST)</th>
+              <th className="p-3 text-left">End Time (IST)</th>
               <th className="p-3 text-left">Mode</th>
               <th className="p-3 text-left">Room</th>
               <th className="p-3 text-left">Actions</th>
@@ -155,8 +178,8 @@ export default function Schedule() {
                   <td className="p-3">{s.teacherId?.email}</td>
                   <td className="p-3">{s.batchName}</td>
                   <td className="p-3">{s.subject}</td>
-                  <td className="p-3">{new Date(s.startTime).toLocaleString()}</td>
-                  <td className="p-3">{new Date(s.endTime).toLocaleString()}</td>
+                  <td className="p-3">{s.startTimeIST || formatIST(s.startTime)}</td>
+                  <td className="p-3">{s.endTimeIST || formatIST(s.endTime)}</td>
                   <td className="p-3 capitalize">{s.mode}</td>
                   <td className="p-3">{s.room || "-"}</td>
                   <td className="p-3 flex gap-3">
@@ -207,11 +230,11 @@ export default function Schedule() {
             </p>
             <p>
               <strong>Start Time:</strong>{" "}
-              {new Date(editingSchedule.startTime).toLocaleString()}
+              {editingSchedule.startTimeIST || formatIST(editingSchedule.startTime)}
             </p>
             <p>
               <strong>End Time:</strong>{" "}
-              {new Date(editingSchedule.endTime).toLocaleString()}
+              {editingSchedule.endTimeIST || formatIST(editingSchedule.endTime)}
             </p>
             <p>
               <strong>Mode:</strong> {editingSchedule.mode}
@@ -274,24 +297,30 @@ export default function Schedule() {
                 className="w-full border p-2 rounded"
                 required
               />
-              <input
-                type="datetime-local"
-                value={formData.startTime}
-                onChange={(e) =>
-                  setFormData({ ...formData, startTime: e.target.value })
-                }
-                className="w-full border p-2 rounded"
-                required
-              />
-              <input
-                type="datetime-local"
-                value={formData.endTime}
-                onChange={(e) =>
-                  setFormData({ ...formData, endTime: e.target.value })
-                }
-                className="w-full border p-2 rounded"
-                required
-              />
+              <div>
+                <label className="block text-sm font-medium mb-1">Start Time (Your Local Time)</label>
+                <input
+                  type="datetime-local"
+                  value={formData.startTime}
+                  onChange={(e) =>
+                    setFormData({ ...formData, startTime: e.target.value })
+                  }
+                  className="w-full border p-2 rounded"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">End Time (Your Local Time)</label>
+                <input
+                  type="datetime-local"
+                  value={formData.endTime}
+                  onChange={(e) =>
+                    setFormData({ ...formData, endTime: e.target.value })
+                  }
+                  className="w-full border p-2 rounded"
+                  required
+                />
+              </div>
               <select
                 value={formData.mode}
                 onChange={(e) =>
@@ -324,7 +353,7 @@ export default function Schedule() {
                 <button
                   type="submit"
                   disabled={creating || updating}
-                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+                  className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
                 >
                   {creating || updating ? "Saving..." : "Save"}
                 </button>
