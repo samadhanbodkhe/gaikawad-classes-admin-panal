@@ -34,6 +34,7 @@ export default function Schedule() {
     teacherId: "",
     batchName: "",
     subject: "",
+    scheduleDate: "",
     startTime: "",
     endTime: "",
     mode: "offline",
@@ -42,25 +43,24 @@ export default function Schedule() {
 
   const [errors, setErrors] = useState({});
 
-  // Get current time in local timezone for input
+  // Get current date and time for default values
   const getCurrentDateTime = () => {
     const now = new Date();
-    // Add 1 hour buffer for end time
-    const endTime = new Date(now.getTime() + 60 * 60 * 1000);
+    const date = now.toISOString().split('T')[0]; // YYYY-MM-DD
+    const startTime = "09:00"; // Default start time 9:00 AM
+    const endTime = "10:00";   // Default end time 10:00 AM
     
-    return {
-      start: now.toISOString().slice(0, 16),
-      end: endTime.toISOString().slice(0, 16)
-    };
+    return { date, startTime, endTime };
   };
 
   useEffect(() => {
-    const times = getCurrentDateTime();
-    if (!editingSchedule) {
+    const { date, startTime, endTime } = getCurrentDateTime();
+    if (!editingSchedule && modalOpen) {
       setFormData(prev => ({
         ...prev,
-        startTime: times.start,
-        endTime: times.end
+        scheduleDate: date,
+        startTime: startTime,
+        endTime: endTime
       }));
     }
   }, [modalOpen, editingSchedule]);
@@ -70,29 +70,33 @@ export default function Schedule() {
     setErrors({});
     
     if (schedule) {
-      // Convert stored dates to local timezone for editing
+      // Extract date and time from existing schedule for editing
+      const startDate = schedule.startTime ? 
+        new Date(schedule.startTime).toISOString().split('T')[0] : "";
       const startTime = schedule.startTime ? 
-        new Date(schedule.startTime).toISOString().slice(0, 16) : "";
+        new Date(schedule.startTime).toTimeString().slice(0, 5) : "";
       const endTime = schedule.endTime ? 
-        new Date(schedule.endTime).toISOString().slice(0, 16) : "";
+        new Date(schedule.endTime).toTimeString().slice(0, 5) : "";
 
       setFormData({
         teacherId: schedule.teacherId?._id || "",
         batchName: schedule.batchName || "",
         subject: schedule.subject || "",
+        scheduleDate: startDate,
         startTime: startTime,
         endTime: endTime,
         mode: schedule.mode || "offline",
         room: schedule.room || "",
       });
     } else {
-      const times = getCurrentDateTime();
+      const { date, startTime, endTime } = getCurrentDateTime();
       setFormData({
         teacherId: "",
         batchName: "",
         subject: "",
-        startTime: times.start,
-        endTime: times.end,
+        scheduleDate: date,
+        startTime: startTime,
+        endTime: endTime,
         mode: "offline",
         room: "",
       });
@@ -106,11 +110,12 @@ export default function Schedule() {
     if (!formData.teacherId) newErrors.teacherId = "Please select a teacher";
     if (!formData.batchName?.trim()) newErrors.batchName = "Batch name is required";
     if (!formData.subject?.trim()) newErrors.subject = "Subject is required";
+    if (!formData.scheduleDate) newErrors.scheduleDate = "Date is required";
     if (!formData.startTime) newErrors.startTime = "Start time is required";
     if (!formData.endTime) newErrors.endTime = "End time is required";
     
     if (formData.startTime && formData.endTime) {
-      if (new Date(formData.startTime) >= new Date(formData.endTime)) {
+      if (formData.startTime >= formData.endTime) {
         newErrors.time = "End time must be after start time";
       }
     }
@@ -413,6 +418,25 @@ export default function Schedule() {
                   )}
                 </div>
 
+                {/* Date Selection */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Schedule Date *
+                  </label>
+                  <input
+                    type="date"
+                    value={formData.scheduleDate}
+                    onChange={(e) => setFormData({ ...formData, scheduleDate: e.target.value })}
+                    className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
+                      errors.scheduleDate ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    min={new Date().toISOString().split('T')[0]}
+                  />
+                  {errors.scheduleDate && (
+                    <p className="text-red-500 text-sm mt-1">{errors.scheduleDate}</p>
+                  )}
+                </div>
+
                 {/* Time Selection */}
                 <div className="grid grid-cols-2 gap-4">
                   <div>
@@ -420,7 +444,7 @@ export default function Schedule() {
                       Start Time *
                     </label>
                     <input
-                      type="datetime-local"
+                      type="time"
                       value={formData.startTime}
                       onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
                       className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
@@ -433,7 +457,7 @@ export default function Schedule() {
                       End Time *
                     </label>
                     <input
-                      type="datetime-local"
+                      type="time"
                       value={formData.endTime}
                       onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
                       className={`w-full border rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 ${
