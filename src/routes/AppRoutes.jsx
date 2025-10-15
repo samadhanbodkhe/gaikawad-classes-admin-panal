@@ -8,7 +8,6 @@ import Billing from "../pages/Billing";
 import Salary from "../pages/Salary";
 import Attendance from "../pages/Attendance";
 import TeacherAR from "../pages/TeacherAR";
-import Schedule from "../pages/Shedule";
 import Leaverequest from "../pages/Leaverequest";
 import Dashboard from "../pages/Dashboard";
 import Student from "../pages/Student";
@@ -18,6 +17,7 @@ import PublicRoute from "../components/PublicRoute";
 import ProtectedRoute from "../components/ProtectedRoute";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import Shedule from "../pages/Shedule";
 
 const AppRoutes = () => {
   return (
@@ -42,7 +42,7 @@ const AppRoutes = () => {
           }
         >
           <Route index element={<Dashboard />} />
-          <Route path="schedule" element={<Schedule />} />
+          <Route path="schedule" element={<Shedule />} />
           <Route path="leaverequest" element={<Leaverequest />} />
           <Route path="teacherAR" element={<TeacherAR />} />
           <Route path="billing" element={<Billing />} />

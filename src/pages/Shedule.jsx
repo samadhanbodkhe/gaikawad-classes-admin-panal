@@ -9,7 +9,7 @@ import {
 import { Loader2, Edit, Trash2, PlusCircle, Info } from "lucide-react";
 import { toast } from "react-toastify";
 
-// Helper function to format date in IST
+// Format date in IST
 const formatIST = (dateString) => {
   if (!dateString) return "-";
   return new Date(dateString).toLocaleString("en-IN", {
@@ -20,20 +20,23 @@ const formatIST = (dateString) => {
     hour: "2-digit",
     minute: "2-digit",
     second: "2-digit",
-    hour12: true
+    hour12: true,
   });
 };
 
-// Helper to get current date-time in correct format for datetime-local input
+// Get current local time for datetime-local input
 const getCurrentDateTimeForInput = () => {
   const now = new Date();
-  // Convert to local time string in correct format
-  return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  return new Date(now.getTime() - now.getTimezoneOffset() * 60000)
+    .toISOString()
+    .slice(0, 16);
 };
 
-export default function Schedule() {
-  const { data: schedulesData, isLoading: loadingSchedules, refetch } = useGetAllSchedulesQuery();
-  const { data: teachersData, isLoading: loadingTeachers } = useGetAllTeachersQuery();
+export default function Shedule() {
+  const { data: schedulesData, isLoading: loadingSchedules, refetch } =
+    useGetAllSchedulesQuery();
+  const { data: teachersData, isLoading: loadingTeachers } =
+    useGetAllTeachersQuery();
 
   const [createSchedule, { isLoading: creating }] = useCreateScheduleMutation();
   const [updateSchedule, { isLoading: updating }] = useUpdateScheduleMutation();
@@ -63,13 +66,16 @@ export default function Schedule() {
   const openModal = (schedule = null) => {
     setEditingSchedule(schedule);
     if (schedule) {
-      // For editing, use the original UTC times - they will be converted to local by the input
       setFormData({
         teacherId: schedule.teacherId?._id || "",
         batchName: schedule.batchName,
         subject: schedule.subject,
-        startTime: schedule.startTime ? new Date(schedule.startTime).toISOString().slice(0, 16) : "",
-        endTime: schedule.endTime ? new Date(schedule.endTime).toISOString().slice(0, 16) : "",
+        startTime: schedule.startTime
+          ? new Date(schedule.startTime).toISOString().slice(0, 16)
+          : "",
+        endTime: schedule.endTime
+          ? new Date(schedule.endTime).toISOString().slice(0, 16)
+          : "",
         mode: schedule.mode,
         room: schedule.room || "",
       });
@@ -171,15 +177,17 @@ export default function Schedule() {
           </thead>
           <tbody>
             {(schedulesData?.schedules || [])
-              .filter((sch) => !selectedTeacher || sch.teacherId?._id === selectedTeacher)
+              .filter(
+                (sch) => !selectedTeacher || sch.teacherId?._id === selectedTeacher
+              )
               .map((s) => (
                 <tr key={s._id} className="border-b hover:bg-gray-50">
                   <td className="p-3">{s.teacherId?.name}</td>
                   <td className="p-3">{s.teacherId?.email}</td>
                   <td className="p-3">{s.batchName}</td>
                   <td className="p-3">{s.subject}</td>
-                  <td className="p-3">{s.startTimeIST || formatIST(s.startTime)}</td>
-                  <td className="p-3">{s.endTimeIST || formatIST(s.endTime)}</td>
+                  <td className="p-3">{formatIST(s.startTime)}</td>
+                  <td className="p-3">{formatIST(s.endTime)}</td>
                   <td className="p-3 capitalize">{s.mode}</td>
                   <td className="p-3">{s.room || "-"}</td>
                   <td className="p-3 flex gap-3">
@@ -215,33 +223,15 @@ export default function Schedule() {
       {detailModalOpen && editingSchedule && (
         <div className="fixed inset-0 flex justify-center items-center bg-black bg-opacity-40">
           <div className="bg-white p-6 rounded-lg w-[90%] max-w-md shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Schedule Details</h2>
-            <p>
-              <strong>Teacher:</strong> {editingSchedule.teacherId?.name}
-            </p>
-            <p>
-              <strong>Email:</strong> {editingSchedule.teacherId?.email}
-            </p>
-            <p>
-              <strong>Batch:</strong> {editingSchedule.batchName}
-            </p>
-            <p>
-              <strong>Subject:</strong> {editingSchedule.subject}
-            </p>
-            <p>
-              <strong>Start Time:</strong>{" "}
-              {editingSchedule.startTimeIST || formatIST(editingSchedule.startTime)}
-            </p>
-            <p>
-              <strong>End Time:</strong>{" "}
-              {editingSchedule.endTimeIST || formatIST(editingSchedule.endTime)}
-            </p>
-            <p>
-              <strong>Mode:</strong> {editingSchedule.mode}
-            </p>
-            <p>
-              <strong>Room:</strong> {editingSchedule.room || "-"}
-            </p>
+            <h2 className="text-xl font-semibold mb-3">Schedule Details</h2>
+            <p><strong>Teacher:</strong> {editingSchedule.teacherId?.name}</p>
+            <p><strong>Email:</strong> {editingSchedule.teacherId?.email}</p>
+            <p><strong>Batch:</strong> {editingSchedule.batchName}</p>
+            <p><strong>Subject:</strong> {editingSchedule.subject}</p>
+            <p><strong>Start Time:</strong> {formatIST(editingSchedule.startTime)}</p>
+            <p><strong>End Time:</strong> {formatIST(editingSchedule.endTime)}</p>
+            <p><strong>Mode:</strong> {editingSchedule.mode}</p>
+            <p><strong>Room:</strong> {editingSchedule.room || "-"}</p>
             <div className="flex justify-end mt-4">
               <button
                 onClick={() => setDetailModalOpen(false)}
@@ -298,7 +288,9 @@ export default function Schedule() {
                 required
               />
               <div>
-                <label className="block text-sm font-medium mb-1">Start Time (Your Local Time)</label>
+                <label className="block text-sm font-medium mb-1">
+                  Start Time
+                </label>
                 <input
                   type="datetime-local"
                   value={formData.startTime}
@@ -310,7 +302,9 @@ export default function Schedule() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">End Time (Your Local Time)</label>
+                <label className="block text-sm font-medium mb-1">
+                  End Time
+                </label>
                 <input
                   type="datetime-local"
                   value={formData.endTime}
