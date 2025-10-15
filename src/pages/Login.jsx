@@ -45,15 +45,21 @@ const Login = () => {
   }, [loginSuccess, loginError, loginErr]);
 
   // when verify success
-  useEffect(() => {
-    if (verifySuccess) {
-      toast.success("Login successful!");
-      setTimeout(() => navigate("/"), 800);
-    }
-    if (verifyError && verifyErr) {
-      toast.error(verifyErr?.data?.message || "Invalid OTP");
-    }
-  }, [verifySuccess, verifyError, verifyErr, navigate]);
+ useEffect(() => {
+  if (verifySuccess) {
+    toast.success("Login successful!");
+    setTimeout(() => {
+      const token = localStorage.getItem("token");
+      const admin = localStorage.getItem("admin");
+      if (token && admin) {
+        navigate("/");  // ✅ Go to Admin Panel
+      }
+    }, 500);
+  }
+  if (verifyError && verifyErr) {
+    toast.error(verifyErr?.data?.message || "Invalid OTP");
+  }
+}, [verifySuccess, verifyError, verifyErr, navigate]);
 
   // submit email
   const handleEmailSubmit = async (e) => {

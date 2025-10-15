@@ -24,12 +24,13 @@ export const authApi = createApi({
                 body: otpData,
             }),
             invalidatesTags: ["auth"],
-            transformResponse: (response) => {
-                if (response?.admin) {
-                    localStorage.setItem("admin", JSON.stringify(response.admin));
-                }
-                return response;
-            }
+           transformResponse: (response) => {
+    if (response?.admin && response?.token) {
+      localStorage.setItem("admin", JSON.stringify(response.admin));
+      localStorage.setItem("token", response.token);  
+    }
+    return response;
+  },
         }),
 
         logoutAdmin: builder.mutation({
