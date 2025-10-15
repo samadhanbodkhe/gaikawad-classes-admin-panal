@@ -1,4 +1,3 @@
-// src/routes/AppRoutes.jsx
 import React from "react";
 import { Route, Routes } from "react-router-dom";
 import AdminLayout from "../components/AdminLayout";
@@ -25,7 +24,6 @@ const AppRoutes = () => {
     <>
       <ToastContainer position="top-right" autoClose={4000} />
       <Routes>
-        {/* Public login page */}
         <Route
           path="/login"
           element={
@@ -35,7 +33,6 @@ const AppRoutes = () => {
           }
         />
 
-        {/* Protected admin panel */}
         <Route
           path="/"
           element={
@@ -56,7 +53,6 @@ const AppRoutes = () => {
           <Route path="student" element={<Student />} />
         </Route>
 
-        {/* Fallback route */}
         <Route path="*" element={<NotFound />} />
       </Routes>
     </>
