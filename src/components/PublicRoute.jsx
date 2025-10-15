@@ -1,14 +1,16 @@
-import { useSelector } from "react-redux";
+// src/components/PublicRoute.jsx
+import React from "react";
 import { Navigate } from "react-router-dom";
 
 const PublicRoute = ({ children }) => {
-    const staff = useSelector((state) => state.auth?.staff);
+  const admin = JSON.parse(localStorage.getItem("admin"));
+  const token = localStorage.getItem("token");
 
-    if (staff) {
-        return <Navigate to="/" replace />;
-    }
+  if (admin && token) {
+    return <Navigate to="/" replace />;
+  }
 
-    return children;
+  return children;
 };
 
 export default PublicRoute;
