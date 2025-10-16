@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
 import {
-  FaSearch,
   FaCalendarAlt,
   FaUser,
   FaCheckCircle,
@@ -9,11 +8,8 @@ import {
   FaPlus,
   FaTimes,
   FaSpinner,
-  FaUsers,
-  FaCalendarCheck,
-  FaCalendarTimes,
-  FaChartBar,
-  FaEye
+  FaEye,
+  FaCalendarDay
 } from "react-icons/fa";
 
 import {
@@ -23,7 +19,6 @@ import {
 } from "../redux/apis/attendanceApi";
 
 const Attendance = () => {
-  const [search, setSearch] = useState("");
   const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
   const [statusFilter, setStatusFilter] = useState("all");
   const [showMarkAttendance, setShowMarkAttendance] = useState(false);
@@ -52,7 +47,6 @@ const Attendance = () => {
     status: statusFilter !== "all" ? statusFilter : undefined
   });
 
-  // Fix: Properly handle the teachers query with better error handling
   const {
     data: teachersResponse,
     isLoading: teachersLoading,
@@ -62,14 +56,13 @@ const Attendance = () => {
     skip: !showMarkAttendance
   });
 
-  // Fix: Handle different possible response structures
+  // Handle attendance data structure
   const attendanceData = attendanceResponse?.attendances || attendanceResponse?.data || [];
   
-  // Fix: Handle teachers data structure properly
+  // Handle teachers data structure properly
   const teachers = React.useMemo(() => {
     if (!teachersResponse) return [];
     
-    // Handle different possible response structures
     if (Array.isArray(teachersResponse)) {
       return teachersResponse;
     } else if (teachersResponse.teachers && Array.isArray(teachersResponse.teachers)) {
@@ -78,7 +71,6 @@ const Attendance = () => {
       return teachersResponse.data;
     }
     
-    console.warn('Unexpected teachers response structure:', teachersResponse);
     return [];
   }, [teachersResponse]);
 
@@ -92,6 +84,7 @@ const Attendance = () => {
 
   const [attendanceForm, setAttendanceForm] = useState(attendanceFormInitial);
 
+  // Close modals on escape key
   useEffect(() => {
     const handleEscape = (e) => {
       if (e.key === 'Escape') {
@@ -103,31 +96,12 @@ const Attendance = () => {
     return () => document.removeEventListener('keydown', handleEscape);
   }, []);
 
+  // Refetch teachers when mark attendance modal opens
   useEffect(() => {
     if (showMarkAttendance) {
       refetchTeachers();
     }
   }, [showMarkAttendance, refetchTeachers]);
-
-  // Calculate statistics
-  const stats = {
-    total: attendanceData.length,
-    present: attendanceData.filter(a => a.status === "present").length,
-    absent: attendanceData.filter(a => a.status === "absent").length,
-    leave: attendanceData.filter(a => a.status === "leave").length,
-    attendanceRate: attendanceData.length > 0
-      ? Math.round(((attendanceData.filter(a => a.status === "present").length) / attendanceData.length) * 100)
-      : 0
-  };
-
-  // Filter data based on search
-  const filteredData = attendanceData.filter(attendance => {
-    const teacher = attendance.teacherId || {};
-    return (
-      teacher.name?.toLowerCase().includes(search.toLowerCase()) ||
-      (teacher.subject && teacher.subject.toLowerCase().includes(search.toLowerCase()))
-    );
-  });
 
   const resetForm = () => {
     setAttendanceForm(attendanceFormInitial);
@@ -155,23 +129,6 @@ const Attendance = () => {
     }
   };
 
-  const handleUpdateStatus = async (attendanceId, newStatus) => {
-    const attendance = attendanceData.find(a => a._id === attendanceId);
-    if (!attendance) return;
-    
-    try {
-      await markAttendance({
-        teacherId: attendance.teacherId._id,
-        date: attendance.date.split('T')[0],
-        status: newStatus
-      }).unwrap();
-      refetchAttendances();
-    } catch (error) {
-      console.error("Failed to update attendance:", error);
-      alert(error.data?.message || "Failed to update attendance");
-    }
-  };
-
   const handleViewDetails = (attendance) => {
     setSelectedAttendance(attendance);
     setShowViewModal(true);
@@ -180,17 +137,17 @@ const Attendance = () => {
   const getStatusBadge = (status) => {
     const statusConfig = {
       present: { 
-        color: "bg-green-50 text-green-700 border-green-200", 
+        color: "bg-green-100 text-green-800 border-green-200", 
         icon: FaCheckCircle, 
         label: "Present" 
       },
       absent: { 
-        color: "bg-red-50 text-red-700 border-red-200", 
+        color: "bg-red-100 text-red-800 border-red-200", 
         icon: FaTimesCircle, 
         label: "Absent" 
       },
       leave: { 
-        color: "bg-yellow-50 text-yellow-700 border-yellow-200", 
+        color: "bg-yellow-100 text-yellow-800 border-yellow-200", 
         icon: FaClock, 
         label: "Leave" 
       }
@@ -199,7 +156,7 @@ const Attendance = () => {
     const Icon = config.icon;
     return (
       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${config.color}`}>
-        <Icon className="w-3 h-3 mr-2" />
+        <Icon className="w-3 h-3 mr-1" />
         {config.label}
       </span>
     );
@@ -224,165 +181,77 @@ const Attendance = () => {
     setSelectedAttendance(null);
   };
 
-  // Fix: Add debug logging to understand the data structure
-  useEffect(() => {
-    if (showMarkAttendance) {
-      console.log('Teachers Response:', teachersResponse);
-      console.log('Processed Teachers:', teachers);
-    }
-  }, [showMarkAttendance, teachersResponse, teachers]);
-
   if (attendanceLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center">
-          <div className="relative">
-            <FaSpinner className="w-12 h-12 text-blue-600 animate-spin mx-auto mb-4" />
-            <div className="absolute inset-0 bg-blue-100 rounded-full animate-ping opacity-20"></div>
-          </div>
-          <p className="text-gray-600 text-lg font-medium">Loading Attendance Data</p>
-          <p className="text-gray-400 text-sm mt-2">Please wait while we fetch the records...</p>
+          <FaSpinner className="w-8 h-8 text-blue-600 animate-spin mx-auto mb-4" />
+          <p className="text-gray-600">Loading attendance data...</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-50 p-4 lg:p-6">
+    <div className="min-h-screen bg-gray-50 p-4 lg:p-6">
       {/* Header Section */}
-      <div className="mb-8">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6 mb-6">
-          <div className="flex-1">
-            <div className="flex items-center gap-3 mb-2">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <FaCalendarCheck className="text-blue-600 text-xl" />
-              </div>
-              <h1 className="text-2xl lg:text-3xl font-bold text-gray-900">Teacher Attendance</h1>
-            </div>
-            <p className="text-gray-600 text-sm lg:text-base max-w-2xl">
-              Manage and track teacher attendance records with real-time updates
+      <div className="mb-6">
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+              <FaCalendarDay className="text-blue-600" />
+              Teacher Attendance
+            </h1>
+            <p className="text-gray-600 text-sm mt-1">
+              Manage teacher attendance records
             </p>
           </div>
           <button
             onClick={() => setShowMarkAttendance(true)}
-            className="flex items-center gap-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-3 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 font-semibold group"
+            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
           >
-            <FaPlus className="text-sm group-hover:scale-110 transition-transform" />
+            <FaPlus className="text-sm" />
             Mark Attendance
           </button>
         </div>
 
-        {/* Stats Dashboard */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 lg:gap-6 mb-8">
-          {[
-            { 
-              label: "Total Records", 
-              value: stats.total, 
-              icon: FaUsers, 
-              color: "from-blue-500 to-blue-600",
-              bgColor: "bg-blue-50"
-            },
-            { 
-              label: "Present", 
-              value: stats.present, 
-              icon: FaCalendarCheck, 
-              color: "from-green-500 to-green-600",
-              bgColor: "bg-green-50"
-            },
-            { 
-              label: "Absent", 
-              value: stats.absent, 
-              icon: FaCalendarTimes, 
-              color: "from-red-500 to-red-600",
-              bgColor: "bg-red-50"
-            },
-            { 
-              label: "Leave", 
-              value: stats.leave, 
-              icon: FaClock, 
-              color: "from-yellow-500 to-yellow-600",
-              bgColor: "bg-yellow-50"
-            },
-            { 
-              label: "Attendance Rate", 
-              value: `${stats.attendanceRate}%`, 
-              icon: FaChartBar, 
-              color: "from-purple-500 to-purple-600",
-              bgColor: "bg-purple-50"
-            },
-          ].map((stat, idx) => (
-            <div key={idx} className="bg-white rounded-2xl p-5 lg:p-6 shadow-sm border border-gray-100 hover:shadow-md transition-all duration-200">
-              <div className="flex justify-between items-start">
-                <div>
-                  <p className="text-gray-500 text-sm font-medium mb-1">{stat.label}</p>
-                  <p className="text-2xl lg:text-3xl font-bold text-gray-900">{stat.value}</p>
-                </div>
-                <div className={`p-3 rounded-xl ${stat.bgColor}`}>
-                  <stat.icon className={`text-xl bg-gradient-to-r ${stat.color} bg-clip-text text-transparent`} />
-                </div>
-              </div>
-              <div className="mt-4 w-full bg-gray-200 rounded-full h-2">
-                <div 
-                  className={`h-2 rounded-full bg-gradient-to-r ${stat.color}`}
-                  style={{ width: `${(stat.value / (stats.total || 1)) * 100}%` }}
-                ></div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Search and Filter Section */}
-        <div className="bg-white rounded-2xl p-4 lg:p-6 shadow-sm border border-gray-100 mb-6">
-          <div className="flex flex-col lg:flex-row gap-4">
-            {/* Search Input */}
-            <div className="flex-1 relative">
-              <FaSearch className="absolute left-4 top-1/2 transform -translate-y-1/2 text-gray-400 text-sm" />
+        {/* Filters Section */}
+        <div className="bg-white rounded-lg p-4 shadow-sm border border-gray-200 mb-6">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
               <input
-                type="text"
-                placeholder="Search by teacher name or subject..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                type="date"
+                value={selectedDate}
+                onChange={(e) => setSelectedDate(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               />
             </div>
-            
-            {/* Date Selector */}
-            <div className="flex flex-col sm:flex-row gap-4">
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Date</label>
-                <input
-                  type="date"
-                  value={selectedDate}
-                  onChange={(e) => setSelectedDate(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
-                />
-              </div>
-              <div className="flex-1">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
-                >
-                  <option value="all">All Status</option>
-                  <option value="present">Present</option>
-                  <option value="absent">Absent</option>
-                  <option value="leave">Leave</option>
-                </select>
-              </div>
+            <div className="flex-1">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Status</label>
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="all">All Status</option>
+                <option value="present">Present</option>
+                <option value="absent">Absent</option>
+                <option value="leave">Leave</option>
+              </select>
             </div>
           </div>
         </div>
       </div>
 
       {/* Attendance Table Section */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+      <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         {/* Table Header */}
-        <div className="px-4 lg:px-6 py-4 border-b border-gray-200 bg-gray-50">
+        <div className="px-4 lg:px-6 py-3 border-b border-gray-200 bg-gray-50">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-semibold text-gray-900">Attendance Records</h3>
-            <span className="text-sm text-gray-500 bg-white px-3 py-1 rounded-full border">
-              {filteredData.length} records
+            <span className="text-sm text-gray-500 bg-white px-2 py-1 rounded border">
+              {attendanceData.length} records
             </span>
           </div>
         </div>
@@ -392,52 +261,56 @@ const Attendance = () => {
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Teacher
                 </th>
-                <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Subject & Date
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Subject
                 </th>
-                <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                  Date
+                </th>
+                <th className="px-4 lg:px-6 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-4 lg:px-6 py-4 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                  Marked By
-                </th>
-                <th className="px-4 lg:px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                <th className="px-4 lg:px-6 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredData.map((attendance) => (
+              {attendanceData.map((attendance) => (
                 <tr 
                   key={attendance._id} 
-                  className="hover:bg-blue-50 transition-colors duration-150 group"
+                  className="hover:bg-gray-50 transition-colors duration-150"
                 >
                   {/* Teacher Column */}
                   <td className="px-4 lg:px-6 py-4">
                     <div className="flex items-center">
-                      <div className="flex-shrink-0 h-10 w-10 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center shadow-sm">
-                        <FaUser className="text-blue-600 text-sm" />
+                      <div className="flex-shrink-0 h-8 w-8 bg-blue-100 rounded-lg flex items-center justify-center">
+                        <FaUser className="text-blue-600 text-xs" />
                       </div>
-                      <div className="ml-4">
-                        <div className="text-sm font-semibold text-gray-900 group-hover:text-blue-700">
+                      <div className="ml-3">
+                        <div className="text-sm font-medium text-gray-900">
                           {attendance.teacherId?.name || "N/A"}
                         </div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-xs text-gray-500">
                           {attendance.teacherId?.email || "No email"}
                         </div>
                       </div>
                     </div>
                   </td>
 
-                  {/* Subject & Date Column */}
+                  {/* Subject Column */}
                   <td className="px-4 lg:px-6 py-4">
-                    <div className="text-sm font-medium text-gray-900">
+                    <div className="text-sm text-gray-900">
                       {attendance.teacherId?.subject || "General"}
                     </div>
-                    <div className="text-sm text-gray-500 flex items-center gap-2 mt-1">
+                  </td>
+
+                  {/* Date Column */}
+                  <td className="px-4 lg:px-6 py-4">
+                    <div className="text-sm text-gray-900 flex items-center gap-1">
                       <FaCalendarAlt className="text-xs text-gray-400" />
                       {formatDate(attendance.date)}
                     </div>
@@ -448,60 +321,16 @@ const Attendance = () => {
                     {getStatusBadge(attendance.status)}
                   </td>
 
-                  {/* Marked By Column */}
-                  <td className="px-4 lg:px-6 py-4">
-                    <div className="text-sm text-gray-900 font-medium">
-                      {attendance.markedBy?.name || "System Admin"}
-                    </div>
-                    <div className="text-xs text-gray-400">
-                      {attendance.createdAt && new Date(attendance.createdAt).toLocaleDateString()}
-                    </div>
-                  </td>
-
                   {/* Actions Column */}
                   <td className="px-4 lg:px-6 py-4 text-right">
-                    <div className="flex justify-end items-center gap-2">
-                      <button
-                        onClick={() => handleViewDetails(attendance)}
-                        className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors duration-200 group/btn"
-                        title="View Details"
-                      >
-                        <FaEye className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
-                      </button>
-                      <button
-                        onClick={() => handleUpdateStatus(attendance._id, "present")}
-                        className={`p-2 rounded-lg transition-colors duration-200 group/btn ${
-                          attendance.status === "present" 
-                            ? "text-green-600 bg-green-50" 
-                            : "text-gray-400 hover:text-green-600 hover:bg-green-50"
-                        }`}
-                        title="Mark Present"
-                      >
-                        <FaCheckCircle className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
-                      </button>
-                      <button
-                        onClick={() => handleUpdateStatus(attendance._id, "absent")}
-                        className={`p-2 rounded-lg transition-colors duration-200 group/btn ${
-                          attendance.status === "absent" 
-                            ? "text-red-600 bg-red-50" 
-                            : "text-gray-400 hover:text-red-600 hover:bg-red-50"
-                        }`}
-                        title="Mark Absent"
-                      >
-                        <FaTimesCircle className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
-                      </button>
-                      <button
-                        onClick={() => handleUpdateStatus(attendance._id, "leave")}
-                        className={`p-2 rounded-lg transition-colors duration-200 group/btn ${
-                          attendance.status === "leave" 
-                            ? "text-yellow-600 bg-yellow-50" 
-                            : "text-gray-400 hover:text-yellow-600 hover:bg-yellow-50"
-                        }`}
-                        title="Mark Leave"
-                      >
-                        <FaClock className="w-4 h-4 group-hover/btn:scale-110 transition-transform" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={() => handleViewDetails(attendance)}
+                      className="inline-flex items-center px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200"
+                      title="View Details"
+                    >
+                      <FaEye className="w-3 h-3 mr-1" />
+                      View
+                    </button>
                   </td>
                 </tr>
               ))}
@@ -510,27 +339,26 @@ const Attendance = () => {
         </div>
 
         {/* Empty State */}
-        {filteredData.length === 0 && !attendanceLoading && (
-          <div className="text-center py-12 lg:py-16">
+        {attendanceData.length === 0 && !attendanceLoading && (
+          <div className="text-center py-12">
             <div className="max-w-md mx-auto">
-              <div className="w-20 h-20 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <FaCalendarAlt className="w-8 h-8 text-gray-400" />
+              <div className="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <FaCalendarAlt className="w-6 h-6 text-gray-400" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">No records found</h3>
-              <p className="text-gray-500 mb-6">
-                {search || statusFilter !== "all" || selectedDate 
-                  ? "Try adjusting your search criteria or filters" 
-                  : "No attendance records available for the selected period"}
+              <p className="text-gray-500 mb-4">
+                {statusFilter !== "all" || selectedDate 
+                  ? "No attendance records match your filters" 
+                  : "No attendance records available for the selected date"}
               </p>
               <button
                 onClick={() => {
-                  setSearch("");
                   setStatusFilter("all");
                   setSelectedDate(new Date().toISOString().split('T')[0]);
                 }}
                 className="text-blue-600 hover:text-blue-700 font-medium text-sm"
               >
-                Clear all filters
+                Clear filters
               </button>
             </div>
           </div>
@@ -540,16 +368,16 @@ const Attendance = () => {
         {attendanceError && (
           <div className="text-center py-12">
             <div className="max-w-md mx-auto">
-              <div className="w-20 h-20 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
-                <FaTimesCircle className="w-8 h-8 text-red-500" />
+              <div className="w-16 h-16 bg-red-100 rounded-lg flex items-center justify-center mx-auto mb-4">
+                <FaTimesCircle className="w-6 h-6 text-red-500" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">Failed to load data</h3>
-              <p className="text-gray-500 mb-6">
-                There was an error loading the attendance records. Please try again.
+              <p className="text-gray-500 mb-4">
+                There was an error loading the attendance records.
               </p>
               <button
                 onClick={refetchAttendances}
-                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors font-medium"
               >
                 Try Again
               </button>
@@ -560,43 +388,43 @@ const Attendance = () => {
 
       {/* Mark Attendance Modal */}
       {showMarkAttendance && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto animate-slideUp"
+            className="bg-white rounded-lg shadow-xl max-w-md w-full max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-2xl">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Mark Attendance</h3>
-                <p className="text-sm text-gray-600 mt-1">Record teacher attendance for selected date</p>
+                <h3 className="text-lg font-bold text-gray-900">Mark Attendance</h3>
+                <p className="text-sm text-gray-600 mt-1">Record teacher attendance</p>
               </div>
               <button
                 onClick={closeMarkAttendanceModal}
-                className="p-2 hover:bg-white rounded-lg transition-colors duration-200 text-gray-400 hover:text-gray-600"
+                className="p-1 hover:bg-gray-100 rounded transition-colors duration-200 text-gray-400 hover:text-gray-600"
               >
                 <FaTimes className="w-5 h-5" />
               </button>
             </div>
             
             {/* Modal Body */}
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-4">
               {/* Teacher Selection */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Select Teacher <span className="text-red-500">*</span>
                 </label>
                 {teachersLoading ? (
-                  <div className="flex items-center justify-center py-8">
-                    <FaSpinner className="w-5 h-5 text-blue-600 animate-spin mr-3" />
+                  <div className="flex items-center justify-center py-4">
+                    <FaSpinner className="w-4 h-4 text-blue-600 animate-spin mr-2" />
                     <span className="text-gray-600">Loading teachers...</span>
                   </div>
                 ) : teachersError ? (
-                  <div className="text-center py-4">
-                    <div className="text-red-500 mb-2">Failed to load teachers</div>
+                  <div className="text-center py-2">
+                    <div className="text-red-500 mb-2 text-sm">Failed to load teachers</div>
                     <button
                       onClick={refetchTeachers}
-                      className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                      className="text-blue-600 hover:text-blue-700 text-sm"
                     >
                       Try Again
                     </button>
@@ -606,14 +434,14 @@ const Attendance = () => {
                     name="teacherId"
                     value={attendanceForm.teacherId}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                     required
                   >
-                    <option value="">Choose a teacher</option>
+                    <option value="">Select a teacher</option>
                     {teachers.length > 0 ? (
                       teachers.map(teacher => (
                         <option key={teacher._id} value={teacher._id}>
-                          {teacher.name} - {teacher.subject || "General Subject"}
+                          {teacher.name} - {teacher.subject || "General"}
                         </option>
                       ))
                     ) : (
@@ -625,7 +453,7 @@ const Attendance = () => {
 
               {/* Date Selection */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Date <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -633,21 +461,21 @@ const Attendance = () => {
                   name="date"
                   value={attendanceForm.date}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   required
                 />
               </div>
 
               {/* Status Selection */}
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-3">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
                   Status <span className="text-red-500">*</span>
                 </label>
                 <select
                   name="status"
                   value={attendanceForm.status}
                   onChange={handleInputChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 bg-gray-50 focus:bg-white"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="present">Present</option>
                   <option value="absent">Absent</option>
@@ -657,10 +485,10 @@ const Attendance = () => {
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-5 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex justify-end gap-3">
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
               <button
                 onClick={closeMarkAttendanceModal}
-                className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors duration-200 font-medium"
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 disabled={markingAttendance}
               >
                 Cancel
@@ -668,7 +496,7 @@ const Attendance = () => {
               <button
                 onClick={handleMarkAttendance}
                 disabled={markingAttendance || !attendanceForm.teacherId || teachersLoading}
-                className="flex items-center gap-2 px-6 py-3 text-white bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex items-center gap-2 px-4 py-2 text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {markingAttendance && <FaSpinner className="animate-spin" />}
                 {markingAttendance ? "Marking..." : "Mark Attendance"}
@@ -680,59 +508,62 @@ const Attendance = () => {
 
       {/* View Attendance Details Modal */}
       {showViewModal && selectedAttendance && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 animate-fadeIn">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
           <div 
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full animate-slideUp"
+            className="bg-white rounded-lg shadow-xl max-w-md w-full"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="px-6 py-5 border-b border-gray-200 flex justify-between items-center bg-gradient-to-r from-blue-50 to-indigo-50 rounded-t-2xl">
+            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
               <div>
-                <h3 className="text-xl font-bold text-gray-900">Attendance Details</h3>
+                <h3 className="text-lg font-bold text-gray-900">Attendance Details</h3>
                 <p className="text-sm text-gray-600 mt-1">Complete attendance information</p>
               </div>
               <button
                 onClick={closeViewModal}
-                className="p-2 hover:bg-white rounded-lg transition-colors duration-200 text-gray-400 hover:text-gray-600"
+                className="p-1 hover:bg-gray-100 rounded transition-colors duration-200 text-gray-400 hover:text-gray-600"
               >
                 <FaTimes className="w-5 h-5" />
               </button>
             </div>
             
             {/* Modal Body */}
-            <div className="p-6 space-y-6">
+            <div className="p-6 space-y-4">
               {/* Teacher Info */}
-              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl">
-                <div className="w-14 h-14 bg-gradient-to-br from-blue-100 to-blue-200 rounded-xl flex items-center justify-center shadow-sm">
-                  <FaUser className="text-blue-600 text-lg" />
+              <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center">
+                  <FaUser className="text-blue-600" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-gray-900 text-lg">
+                  <h4 className="font-bold text-gray-900">
                     {selectedAttendance.teacherId?.name || "N/A"}
                   </h4>
-                  <p className="text-gray-600">
+                  <p className="text-gray-600 text-sm">
                     {selectedAttendance.teacherId?.subject || "General Subject"}
+                  </p>
+                  <p className="text-gray-500 text-xs">
+                    {selectedAttendance.teacherId?.email || "No email"}
                   </p>
                 </div>
               </div>
 
-              {/* Attendance Details Grid */}
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div className="bg-gray-50 p-4 rounded-xl">
-                  <span className="font-semibold text-gray-500 block mb-1">Date</span>
-                  <p className="text-gray-900 font-medium">
+              {/* Attendance Details */}
+              <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <span className="font-medium text-gray-500 block mb-1">Date</span>
+                  <p className="text-gray-900">
                     {formatDate(selectedAttendance.date)}
                   </p>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-xl">
-                  <span className="font-semibold text-gray-500 block mb-1">Status</span>
-                  <div className="mt-1">
+                <div className="bg-gray-50 p-3 rounded-lg">
+                  <span className="font-medium text-gray-500 block mb-1">Status</span>
+                  <div>
                     {getStatusBadge(selectedAttendance.status)}
                   </div>
                 </div>
-                <div className="bg-gray-50 p-4 rounded-xl col-span-2">
-                  <span className="font-semibold text-gray-500 block mb-1">Marked By</span>
-                  <p className="text-gray-900 font-medium">
+                <div className="bg-gray-50 p-3 rounded-lg col-span-2">
+                  <span className="font-medium text-gray-500 block mb-1">Marked By</span>
+                  <p className="text-gray-900">
                     {selectedAttendance.markedBy?.name || "System Admin"}
                   </p>
                 </div>
@@ -740,17 +571,17 @@ const Attendance = () => {
 
               {/* Timestamp */}
               {selectedAttendance.createdAt && (
-                <div className="text-xs text-gray-400 text-center border-t pt-4">
+                <div className="text-xs text-gray-400 text-center border-t pt-3">
                   Record created on {new Date(selectedAttendance.createdAt).toLocaleString()}
                 </div>
               )}
             </div>
 
             {/* Modal Footer */}
-            <div className="px-6 py-5 border-t border-gray-200 bg-gray-50 rounded-b-2xl flex justify-end">
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end">
               <button
                 onClick={closeViewModal}
-                className="px-6 py-3 text-gray-700 bg-white border border-gray-300 rounded-xl hover:bg-gray-50 transition-colors duration-200 font-medium"
+                className="px-4 py-2 text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
               >
                 Close
               </button>
