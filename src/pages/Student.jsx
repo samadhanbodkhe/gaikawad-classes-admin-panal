@@ -86,14 +86,6 @@ const Student = () => {
                 </option>
               ))}
             </select>
-            <select
-              value={sortBy}
-              onChange={(e) => setSortBy(e.target.value)}
-              className="border border-gray-300 rounded-lg px-3 py-2"
-            >
-              <option value="newest">Newest</option>
-              <option value="name">Name A–Z</option>
-            </select>
           </div>
         </section>
 
