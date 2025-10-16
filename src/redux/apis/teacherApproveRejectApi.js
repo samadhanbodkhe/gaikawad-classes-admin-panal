@@ -29,9 +29,10 @@ export const teacherApproveRejectApi = createApi({
       invalidatesTags: ["TeacherRequests", "Teachers"],
     }),
     rejectTeacher: builder.mutation({
-      query: (id) => ({
+      query: ({ id, reason }) => ({
         url: `/teacherReject/${id}`,
         method: "PUT",
+        body: { reason },
       }),
       invalidatesTags: ["TeacherRequests", "Teachers"],
     }),
