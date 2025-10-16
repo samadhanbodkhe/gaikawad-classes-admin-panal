@@ -20,7 +20,8 @@ import {
   Phone,
   GraduationCap,
   BookOpen,
-  DollarSign
+  DollarSign,
+  Calendar
 } from "lucide-react";
 
 const TeacherAR = () => {
@@ -29,6 +30,7 @@ const TeacherAR = () => {
   const [approveTeacher] = useApproveTeacherMutation();
   const [rejectTeacher] = useRejectTeacherMutation();
   const [selectedTeacherId, setSelectedTeacherId] = useState(null);
+  const [selectedTeacherType, setSelectedTeacherType] = useState(null); // 'pending' or 'approved'
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const {
@@ -66,8 +68,9 @@ const TeacherAR = () => {
     }
   };
 
-  const handleViewDetails = async (teacherId) => {
+  const handleViewDetails = async (teacherId, teacherType = 'approved') => {
     setSelectedTeacherId(teacherId);
+    setSelectedTeacherType(teacherType);
     setShowDetailsModal(true);
     // Refetch details to ensure fresh data
     setTimeout(() => {
@@ -78,6 +81,7 @@ const TeacherAR = () => {
   const closeDetailsModal = () => {
     setShowDetailsModal(false);
     setSelectedTeacherId(null);
+    setSelectedTeacherType(null);
   };
 
   // Format subjects for display - handle all possible formats
@@ -115,6 +119,20 @@ const TeacherAR = () => {
       return url.split('/').pop() || "Document";
     } catch {
       return "Document";
+    }
+  };
+
+  // Format date for display
+  const formatDate = (dateString) => {
+    if (!dateString) return "Not available";
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return "Invalid date";
     }
   };
 
@@ -205,6 +223,10 @@ const TeacherAR = () => {
                     <td className="px-6 py-4">
                       <div>
                         <div className="font-semibold text-gray-900">{teacher.name}</div>
+                        <div className="text-sm text-yellow-600 flex items-center gap-1">
+                          <AlertCircle size={12} />
+                          Pending Approval
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -234,7 +256,7 @@ const TeacherAR = () => {
                     <td className="px-6 py-4">
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleViewDetails(teacher._id)}
+                          onClick={() => handleViewDetails(teacher._id, 'pending')}
                           className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                         >
                           <Eye size={16} /> Details
@@ -328,7 +350,7 @@ const TeacherAR = () => {
                     </td>
                     <td className="px-6 py-4">
                       <button
-                        onClick={() => handleViewDetails(teacher._id)}
+                        onClick={() => handleViewDetails(teacher._id, 'approved')}
                         className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
                       >
                         <Eye size={16} /> View Details
@@ -409,10 +431,17 @@ const TeacherAR = () => {
           <div className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-hidden">
             {/* Modal Header */}
             <div className="px-6 py-4 border-b bg-gray-50 flex justify-between items-center">
-              <h3 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                <Users className="text-blue-600" />
-                Teacher Details
-              </h3>
+              <div className="flex items-center gap-3">
+                <Users className="text-blue-600" size={24} />
+                <div>
+                  <h3 className="text-2xl font-bold text-gray-800">Teacher Details</h3>
+                  <div className={`text-sm font-medium ${
+                    selectedTeacherType === 'pending' ? 'text-yellow-600' : 'text-green-600'
+                  }`}>
+                    {selectedTeacherType === 'pending' ? 'Pending Approval' : 'Approved Teacher'}
+                  </div>
+                </div>
+              </div>
               <button
                 onClick={closeDetailsModal}
                 className="p-2 hover:bg-gray-200 rounded-lg transition-colors"
@@ -429,6 +458,16 @@ const TeacherAR = () => {
                 </div>
               ) : teacherDetails ? (
                 <div className="space-y-6">
+                  {/* Status Badge */}
+                  {selectedTeacherType === 'pending' && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-yellow-800">
+                        <AlertCircle size={20} />
+                        <span className="font-semibold">This teacher is pending approval</span>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Basic Information */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <div className="space-y-4">
@@ -500,6 +539,19 @@ const TeacherAR = () => {
                           <div className="text-sm text-gray-600 capitalize">
                             {teacherDetails.salaryType || "fixed"}
                           </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Registration Date */}
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="flex items-center gap-3">
+                      <Calendar className="text-gray-600" size={20} />
+                      <div>
+                        <div className="text-sm text-gray-600">Registration Date</div>
+                        <div className="font-semibold text-gray-900">
+                          {formatDate(teacherDetails.createdAt || teacherDetails.joinDate)}
                         </div>
                       </div>
                     </div>
