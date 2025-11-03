@@ -11,7 +11,9 @@ import {
   FaUmbrellaBeach,
   FaHome,
   FaBriefcase,
-  FaExclamationTriangle
+  FaExclamationTriangle,
+  FaBars,
+  FaTimes
 } from "react-icons/fa";
 import { useGetLeaveRequestsQuery, useProcessLeaveRequestMutation } from "../redux/apis/leaveRequestsApi";
 
@@ -23,6 +25,7 @@ const Leaverequest = () => {
   const [showActionModal, setShowActionModal] = useState(false);
   const [rejectionReason, setRejectionReason] = useState("");
   const [actionType, setActionType] = useState(""); // "approve" or "reject"
+  const [isMobileView, setIsMobileView] = useState(false);
 
   // RTK Query hooks
   const { 
@@ -34,6 +37,45 @@ const Leaverequest = () => {
 
   const [processLeaveRequest, { isLoading: isProcessing }] = useProcessLeaveRequestMutation();
 
+  // Check screen size on mount and resize
+  useEffect(() => {
+    const checkScreenSize = () => {
+      setIsMobileView(window.innerWidth < 768);
+    };
+
+    checkScreenSize();
+    window.addEventListener('resize', checkScreenSize);
+    
+    return () => window.removeEventListener('resize', checkScreenSize);
+  }, []);
+
+  // Function to format Indian date time
+  const formatIndianDateTime = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
+  // Function to format Indian time only
+  const formatIndianTime = (dateString) => {
+    if (!dateString) return 'N/A';
+    const date = new Date(dateString);
+    return date.toLocaleString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
+
   // Transform API data
   const leaveRequests = leaveRequestsData?.leaveRequests?.map(request => ({
     id: request._id,
@@ -41,16 +83,20 @@ const Leaverequest = () => {
     teacher: request.teacherId?.name || "Unknown Teacher",
     fromDate: new Date(request.fromDate).toISOString().split('T')[0],
     toDate: new Date(request.toDate).toISOString().split('T')[0],
+    fromTime: formatIndianTime(request.fromDate),
+    toTime: formatIndianTime(request.toDate),
     leaveType: request.leaveType,
     reason: request.reason || "No reason provided",
     status: request.status?.toLowerCase() || "pending",
-    appliedOn: new Date(request.createdAt).toISOString().split('T')[0],
+    appliedOn: formatIndianDateTime(request.appliedAt || request.createdAt),
+    appliedTime: formatIndianTime(request.appliedAt || request.createdAt),
     duration: Math.ceil((new Date(request.toDate) - new Date(request.fromDate)) / (1000 * 60 * 60 * 24)) + 1,
     emergencyContact: request.emergencyContact || "Not provided",
     documents: request.documents || [],
     priority: request.priority || "medium",
     rejectionReason: request.rejectionReason,
-    processedOn: request.processedAt ? new Date(request.processedAt).toISOString().split('T')[0] : null
+    processedOn: request.processedAt ? formatIndianDateTime(request.processedAt) : null,
+    processedTime: request.processedAt ? formatIndianTime(request.processedAt) : null
   })) || [];
 
   // Leave types with icons
@@ -59,7 +105,11 @@ const Leaverequest = () => {
     "Personal": { icon: FaBriefcase, color: "blue", bgColor: "bg-blue-100" },
     "Vacation": { icon: FaUmbrellaBeach, color: "green", bgColor: "bg-green-100" },
     "Casual": { icon: FaHome, color: "purple", bgColor: "bg-purple-100" },
-    "Emergency": { icon: FaExclamationTriangle, color: "orange", bgColor: "bg-orange-100" }
+    "Emergency": { icon: FaExclamationTriangle, color: "orange", bgColor: "bg-orange-100" },
+    "Medical": { icon: FaStethoscope, color: "pink", bgColor: "bg-pink-100" },
+    "Maternity": { icon: FaHome, color: "purple", bgColor: "bg-purple-100" },
+    "Paternity": { icon: FaHome, color: "blue", bgColor: "bg-blue-100" },
+    "Bereavement": { icon: FaHome, color: "gray", bgColor: "bg-gray-100" }
   };
 
   // Calculate stats from API data
@@ -107,7 +157,7 @@ const Leaverequest = () => {
       await processLeaveRequest({ 
         id: selectedRequest.id, 
         status: "Rejected",
-        rejectionReason: rejectionReason // Make sure backend accepts this field
+        rejectionReason: rejectionReason
       }).unwrap();
       
       alert("Leave request rejected successfully!");
@@ -147,9 +197,10 @@ const Leaverequest = () => {
     const Icon = config.icon;
     
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${config.color}`}>
-        <Icon className="w-4 h-4 mr-2" />
-        {status.charAt(0).toUpperCase() + status.slice(1)}
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${config.color}`}>
+        <Icon className="w-3 h-3 mr-1" />
+        <span className="hidden sm:inline">{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+        <span className="sm:hidden">{status.charAt(0).toUpperCase()}</span>
       </span>
     );
   };
@@ -157,14 +208,22 @@ const Leaverequest = () => {
   // Get leave type badge
   const getLeaveTypeBadge = (leaveType) => {
     const typeConfig = leaveTypes[leaveType];
-    if (!typeConfig) return null;
+    if (!typeConfig) {
+      return (
+        <span className="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-800">
+          <span className="hidden sm:inline">{leaveType}</span>
+          <span className="sm:hidden">{leaveType.substring(0, 3)}</span>
+        </span>
+      );
+    }
     
     const Icon = typeConfig.icon;
     
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${typeConfig.bgColor} text-${typeConfig.color}-800`}>
-        <Icon className="w-4 h-4 mr-2" />
-        {leaveType}
+      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${typeConfig.bgColor} text-${typeConfig.color}-800`}>
+        <Icon className="w-3 h-3 mr-1" />
+        <span className="hidden sm:inline">{leaveType}</span>
+        <span className="sm:hidden">{leaveType.substring(0, 3)}</span>
       </span>
     );
   };
@@ -172,7 +231,7 @@ const Leaverequest = () => {
   // Loading state
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
           <p className="text-gray-600">Loading leave requests...</p>
@@ -184,14 +243,14 @@ const Leaverequest = () => {
   // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center bg-white rounded-lg shadow-sm p-8 max-w-md">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center bg-white rounded-xl shadow-sm p-6 max-w-md w-full">
           <FaExclamationTriangle className="w-12 h-12 text-red-600 mx-auto mb-4" />
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Data</h3>
           <p className="text-gray-600 mb-4">There was an error loading leave requests.</p>
           <button 
             onClick={refetch}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors w-full sm:w-auto"
           >
             Try Again
           </button>
@@ -201,67 +260,67 @@ const Leaverequest = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6">
       {/* Header */}
-      <div className="mb-8">
-        <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Leave Requests</h1>
-          <p className="text-gray-600">Manage teacher leave applications</p>
+      <div className="mb-6 sm:mb-8">
+        <div className="mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Leave Requests</h1>
+          <p className="text-gray-600 text-sm sm:text-base">Manage teacher leave applications</p>
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mb-6 sm:mb-8">
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Total Requests</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.total}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Total</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.total}</p>
               </div>
-              <div className="p-3 bg-blue-100 rounded-xl">
-                <FaCalendarAlt className="text-blue-600 text-xl" />
+              <div className="p-2 sm:p-3 bg-blue-100 rounded-lg sm:rounded-xl">
+                <FaCalendarAlt className="text-blue-600 text-sm sm:text-xl" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Pending</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.pending}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Pending</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.pending}</p>
               </div>
-              <div className="p-3 bg-yellow-100 rounded-xl">
-                <FaClock className="text-yellow-600 text-xl" />
+              <div className="p-2 sm:p-3 bg-yellow-100 rounded-lg sm:rounded-xl">
+                <FaClock className="text-yellow-600 text-sm sm:text-xl" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Approved</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.approved}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Approved</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.approved}</p>
               </div>
-              <div className="p-3 bg-green-100 rounded-xl">
-                <FaCheckCircle className="text-green-600 text-xl" />
+              <div className="p-2 sm:p-3 bg-green-100 rounded-lg sm:rounded-xl">
+                <FaCheckCircle className="text-green-600 text-sm sm:text-xl" />
               </div>
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+          <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-3 sm:p-4">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-600">Rejected</p>
-                <p className="text-2xl font-bold text-gray-900">{stats.rejected}</p>
+                <p className="text-xs sm:text-sm font-medium text-gray-600">Rejected</p>
+                <p className="text-xl sm:text-2xl font-bold text-gray-900">{stats.rejected}</p>
               </div>
-              <div className="p-3 bg-red-100 rounded-xl">
-                <FaTimesCircle className="text-red-600 text-xl" />
+              <div className="p-2 sm:p-3 bg-red-100 rounded-lg sm:rounded-xl">
+                <FaTimesCircle className="text-red-600 text-sm sm:text-xl" />
               </div>
             </div>
           </div>
         </div>
 
         {/* Search */}
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6 mb-8">
+        <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 p-4 sm:p-6 mb-6 sm:mb-8">
           <div className="max-w-md">
             <label className="block text-sm font-medium text-gray-700 mb-3">
               Search Leave Requests
@@ -271,7 +330,7 @@ const Leaverequest = () => {
               <input
                 type="text"
                 placeholder="Search by teacher, reason, or type..."
-                className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full pl-10 pr-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-sm sm:text-base"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
@@ -281,24 +340,24 @@ const Leaverequest = () => {
       </div>
 
       {/* Leave Requests Table */}
-      <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
+      <div className="bg-white rounded-lg sm:rounded-xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 uppercase tracking-wider">
-                  Teacher
+                <th className="px-3 sm:px-6 py-3 text-left text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wider">
+                  {isMobileView ? "Teacher" : "Teacher & Time"}
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 uppercase tracking-wider">
-                  Leave Details
+                <th className="px-3 sm:px-6 py-3 text-left text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wider">
+                  {isMobileView ? "Details" : "Leave Details"}
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 uppercase tracking-wider">
-                  Dates
+                <th className="px-3 sm:px-6 py-3 text-left text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wider">
+                  {isMobileView ? "Dates" : "Dates & Times"}
                 </th>
-                <th className="px-6 py-4 text-left text-sm font-semibold text-gray-900 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-3 text-left text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wider">
                   Status
                 </th>
-                <th className="px-6 py-4 text-right text-sm font-semibold text-gray-900 uppercase tracking-wider">
+                <th className="px-3 sm:px-6 py-3 text-right text-xs sm:text-sm font-semibold text-gray-900 uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -306,61 +365,66 @@ const Leaverequest = () => {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredRequests.map((request) => (
                 <tr key={request.id} className="hover:bg-gray-50 transition-colors">
-                  {/* Teacher */}
-                  <td className="px-6 py-4">
+                  {/* Teacher & Time */}
+                  <td className="px-3 sm:px-6 py-4">
                     <div className="flex items-center">
-                      <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                        <FaUser className="text-blue-600 text-sm" />
+                      <div className="w-8 h-8 sm:w-10 sm:h-10 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <FaUser className="text-blue-600 text-xs sm:text-sm" />
                       </div>
-                      <div className="ml-4">
-                        <div className="font-medium text-gray-900">
+                      <div className="ml-2 sm:ml-4 min-w-0">
+                        <div className="font-medium text-gray-900 text-sm truncate max-w-[120px] sm:max-w-none">
                           {request.teacher}
                         </div>
-                        <div className="text-sm text-gray-500">
-                          Applied: {request.appliedOn}
+                        <div className="text-xs text-gray-500 truncate max-w-[120px] sm:max-w-none">
+                          {isMobileView ? request.appliedTime : request.appliedOn}
                         </div>
                       </div>
                     </div>
                   </td>
 
                   {/* Leave Details */}
-                  <td className="px-6 py-4">
-                    <div className="space-y-2">
+                  <td className="px-3 sm:px-6 py-4">
+                    <div className="space-y-1 sm:space-y-2">
                       <div>
                         {getLeaveTypeBadge(request.leaveType)}
                       </div>
-                      <div className="text-sm text-gray-600 max-w-xs">
+                      <div className="text-xs sm:text-sm text-gray-600 max-w-[100px] sm:max-w-xs truncate">
                         {request.reason}
                       </div>
                     </div>
                   </td>
 
-                  {/* Dates */}
-                  <td className="px-6 py-4">
+                  {/* Dates & Times */}
+                  <td className="px-3 sm:px-6 py-4">
                     <div className="space-y-1">
-                      <div className="text-sm text-gray-900">
-                        {request.fromDate} to {request.toDate}
+                      <div className="text-xs sm:text-sm text-gray-900">
+                        <div className="font-medium hidden sm:block">From:</div>
+                        <div className="truncate max-w-[80px] sm:max-w-none">{request.fromDate}</div>
                       </div>
-                      <div className="text-sm text-gray-500">
-                        {request.duration} day{request.duration > 1 ? 's' : ''}
+                      <div className="text-xs sm:text-sm text-gray-900">
+                        <div className="font-medium hidden sm:block">To:</div>
+                        <div className="truncate max-w-[80px] sm:max-w-none">{request.toDate}</div>
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {request.duration}d
                       </div>
                     </div>
                   </td>
 
                   {/* Status */}
-                  <td className="px-6 py-4">
+                  <td className="px-3 sm:px-6 py-4">
                     {getStatusBadge(request.status)}
                   </td>
 
                   {/* Actions */}
-                  <td className="px-6 py-4 whitespace-nowrap text-right">
-                    <div className="flex justify-end items-center gap-3">
+                  <td className="px-3 sm:px-6 py-4 whitespace-nowrap text-right">
+                    <div className="flex justify-end items-center gap-1 sm:gap-2">
                       <button
                         onClick={() => handleViewDetails(request)}
-                        className="text-blue-600 hover:text-blue-800 p-2 rounded-lg hover:bg-blue-50 transition-colors"
+                        className="text-blue-600 hover:text-blue-800 p-1 sm:p-2 rounded-lg hover:bg-blue-50 transition-colors"
                         title="View Details"
                       >
-                        <FaEye className="w-4 h-4" />
+                        <FaEye className="w-3 h-3 sm:w-4 sm:h-4" />
                       </button>
                       
                       {/* APPROVE AND REJECT BUTTONS - Only show for pending requests */}
@@ -369,18 +433,18 @@ const Leaverequest = () => {
                           <button
                             onClick={() => handleApprove(request.id)}
                             disabled={isProcessing}
-                            className="text-green-600 hover:text-green-800 p-2 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-green-600 hover:text-green-800 p-1 sm:p-2 rounded-lg hover:bg-green-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Approve Leave"
                           >
-                            <FaCheckCircle className="w-4 h-4" />
+                            <FaCheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                           </button>
                           <button
                             onClick={() => handleReject(request.id)}
                             disabled={isProcessing}
-                            className="text-red-600 hover:text-red-800 p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="text-red-600 hover:text-red-800 p-1 sm:p-2 rounded-lg hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             title="Reject Leave"
                           >
-                            <FaTimesCircle className="w-4 h-4" />
+                            <FaTimesCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                           </button>
                         </>
                       )}
@@ -394,10 +458,10 @@ const Leaverequest = () => {
 
         {/* Empty State */}
         {filteredRequests.length === 0 && (
-          <div className="text-center py-16">
-            <FaCalendarAlt className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+          <div className="text-center py-12 sm:py-16">
+            <FaCalendarAlt className="w-12 h-12 sm:w-16 sm:h-16 text-gray-400 mx-auto mb-4" />
             <h3 className="text-lg font-semibold text-gray-900 mb-2">No leave requests found</h3>
-            <p className="text-gray-600">
+            <p className="text-gray-600 text-sm sm:text-base px-4">
               {searchTerm 
                 ? "No matching leave requests found. Try adjusting your search." 
                 : "No leave requests have been submitted yet."
@@ -409,38 +473,38 @@ const Leaverequest = () => {
 
       {/* View Leave Details Modal */}
       {showViewModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-              <h3 className="text-xl font-semibold text-gray-900">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+              <h3 className="text-lg sm:text-xl font-semibold text-gray-900">
                 Leave Request Details
               </h3>
               <button
                 onClick={() => setShowViewModal(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors p-1"
               >
-                <FaTimesCircle className="w-6 h-6" />
+                <FaTimes className="w-5 h-5 sm:w-6 sm:h-6" />
               </button>
             </div>
             
-            <div className="p-6 space-y-6">
+            <div className="p-4 sm:p-6 space-y-4 sm:space-y-6">
               {/* Teacher Information */}
-              <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                  <FaUser className="text-blue-600 text-xl" />
+              <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-gray-50 rounded-lg">
+                <div className="w-10 h-10 sm:w-12 sm:h-12 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <FaUser className="text-blue-600 text-lg sm:text-xl" />
                 </div>
-                <div>
-                  <h4 className="font-semibold text-gray-900 text-lg">{selectedRequest.teacher}</h4>
-                  <p className="text-gray-600">Leave Application</p>
+                <div className="min-w-0 flex-1">
+                  <h4 className="font-semibold text-gray-900 text-base sm:text-lg truncate">{selectedRequest.teacher}</h4>
+                  <p className="text-gray-600 text-sm">Applied on: {selectedRequest.appliedOn}</p>
                 </div>
-                <div className="ml-auto">
+                <div className="flex-shrink-0">
                   {getStatusBadge(selectedRequest.status)}
                 </div>
               </div>
 
               {/* Leave Information */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
+                <div className="space-y-3 sm:space-y-4">
                   <div>
                     <label className="text-sm font-medium text-gray-500 block mb-2">Leave Type</label>
                     {getLeaveTypeBadge(selectedRequest.leaveType)}
@@ -451,23 +515,24 @@ const Leaverequest = () => {
                   </div>
                   <div>
                     <label className="text-sm font-medium text-gray-500 block mb-2">Applied On</label>
-                    <p className="text-gray-900">{selectedRequest.appliedOn}</p>
+                    <p className="text-gray-900 text-sm">{selectedRequest.appliedOn}</p>
                   </div>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3 sm:space-y-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-500 block mb-2">From Date</label>
+                    <label className="text-sm font-medium text-gray-500 block mb-2">From Date & Time</label>
                     <p className="text-gray-900">{selectedRequest.fromDate}</p>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-500 block mb-2">To Date</label>
+                    <label className="text-sm font-medium text-gray-500 block mb-2">To Date & Time</label>
                     <p className="text-gray-900">{selectedRequest.toDate}</p>
+                  
                   </div>
                   {selectedRequest.emergencyContact && (
                     <div>
                       <label className="text-sm font-medium text-gray-500 block mb-2">Emergency Contact</label>
-                      <p className="text-gray-900">{selectedRequest.emergencyContact}</p>
+                      <p className="text-gray-900 text-sm">{selectedRequest.emergencyContact}</p>
                     </div>
                   )}
                 </div>
@@ -476,8 +541,8 @@ const Leaverequest = () => {
               {/* Reason */}
               <div>
                 <label className="text-sm font-medium text-gray-500 block mb-3">Reason for Leave</label>
-                <div className="bg-gray-50 p-4 rounded-lg">
-                  <p className="text-gray-900">{selectedRequest.reason}</p>
+                <div className="bg-gray-50 p-3 sm:p-4 rounded-lg">
+                  <p className="text-gray-900 text-sm sm:text-base">{selectedRequest.reason}</p>
                 </div>
               </div>
 
@@ -487,7 +552,7 @@ const Leaverequest = () => {
                   <label className="text-sm font-medium text-gray-500 block mb-3">Attached Documents</label>
                   <div className="space-y-2">
                     {selectedRequest.documents.map((doc, index) => (
-                      <div key={index} className="text-blue-600 hover:text-blue-800 cursor-pointer">
+                      <div key={index} className="text-blue-600 hover:text-blue-800 cursor-pointer text-sm">
                         📎 {doc}
                       </div>
                     ))}
@@ -497,15 +562,23 @@ const Leaverequest = () => {
 
               {/* Rejection Reason */}
               {selectedRequest.rejectionReason && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3 sm:p-4">
                   <label className="text-sm font-medium text-red-800 block mb-2">Rejection Reason</label>
-                  <p className="text-red-700">{selectedRequest.rejectionReason}</p>
+                  <p className="text-red-700 text-sm">{selectedRequest.rejectionReason}</p>
+                </div>
+              )}
+
+              {/* Processed Information */}
+              {selectedRequest.processedOn && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
+                  <label className="text-sm font-medium text-green-800 block mb-2">Processed Information</label>
+                  <p className="text-green-700 text-sm">Processed on: {selectedRequest.processedOn}</p>
                 </div>
               )}
             </div>
 
             {/* APPROVE AND REJECT BUTTONS IN MODAL */}
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+            <div className="px-4 sm:px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
               {selectedRequest.status === "pending" && (
                 <>
                   <button
@@ -514,7 +587,7 @@ const Leaverequest = () => {
                       setShowViewModal(false);
                     }}
                     disabled={isProcessing}
-                    className="px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 sm:px-6 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed order-2 sm:order-1"
                   >
                     {isProcessing ? "Processing..." : "Approve"}
                   </button>
@@ -525,7 +598,7 @@ const Leaverequest = () => {
                       setShowViewModal(false);
                     }}
                     disabled={isProcessing}
-                    className="px-6 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 sm:px-6 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed order-3 sm:order-2"
                   >
                     Reject
                   </button>
@@ -533,7 +606,7 @@ const Leaverequest = () => {
               )}
               <button
                 onClick={() => setShowViewModal(false)}
-                className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 sm:px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors order-1 sm:order-3"
               >
                 Close
               </button>
@@ -544,18 +617,18 @@ const Leaverequest = () => {
 
       {/* Rejection Reason Modal */}
       {showActionModal && selectedRequest && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-xl shadow-xl max-w-md w-full">
-            <div className="px-6 py-4 border-b border-gray-200">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-2 sm:p-4 z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md">
+            <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold text-gray-900">
                 {actionType === "reject" ? "Reject Leave Request" : "Confirm Action"}
               </h3>
             </div>
             
-            <div className="p-6">
-              <p className="text-gray-600 mb-4">
+            <div className="p-4 sm:p-6">
+              <p className="text-gray-600 mb-4 text-sm sm:text-base">
                 {actionType === "reject" 
-                  ? `Rejecting leave request for <strong>${selectedRequest.teacher}</strong>`
+                  ? `Rejecting leave request for ${selectedRequest.teacher}`
                   : `Are you sure you want to ${actionType} this leave request?`
                 }
               </p>
@@ -569,14 +642,14 @@ const Leaverequest = () => {
                     value={rejectionReason}
                     onChange={(e) => setRejectionReason(e.target.value)}
                     placeholder="Please provide a reason for rejection..."
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none"
+                    className="w-full px-3 sm:px-4 py-2 sm:py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none text-sm sm:text-base"
                     rows="4"
                   />
                 </>
               )}
             </div>
 
-            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50 flex justify-end gap-3">
+            <div className="px-4 sm:px-6 py-4 border-t border-gray-200 bg-gray-50 flex flex-col sm:flex-row justify-end gap-2 sm:gap-3">
               <button
                 onClick={() => {
                   setShowActionModal(false);
@@ -584,14 +657,14 @@ const Leaverequest = () => {
                   setSelectedRequest(null);
                   setActionType("");
                 }}
-                className="px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 sm:px-6 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors order-2 sm:order-1"
               >
                 Cancel
               </button>
               <button
                 onClick={actionType === "reject" ? handleRejectWithReason : () => {}}
                 disabled={actionType === "reject" && !rejectionReason.trim()}
-                className={`px-6 py-2 text-sm font-medium text-white rounded-lg transition-colors ${
+                className={`px-4 sm:px-6 py-2 text-sm font-medium text-white rounded-lg transition-colors order-1 sm:order-2 ${
                   actionType === "reject" 
                     ? (!rejectionReason.trim() ? 'bg-gray-400 cursor-not-allowed' : 'bg-red-600 hover:bg-red-700')
                     : 'bg-green-600 hover:bg-green-700'

@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import {
   useGetPendingTeachersQuery,
+  useGetRejectedTeachersQuery,
   useGetAllTeachersQuery,
   useGetTeacherDetailsQuery,
   useApproveTeacherMutation,
@@ -21,16 +22,18 @@ import {
   GraduationCap,
   BookOpen,
   DollarSign,
-  Calendar
+  Calendar,
+  Clock
 } from "lucide-react";
 
 const TeacherAR = () => {
   const { data: pendingData = [], isLoading: loadingPending, refetch: refetchPending } = useGetPendingTeachersQuery();
+  const { data: rejectedData = [], isLoading: loadingRejected, refetch: refetchRejected } = useGetRejectedTeachersQuery();
   const { data: allTeachers = [], isLoading: loadingAll, refetch: refetchAll } = useGetAllTeachersQuery();
   const [approveTeacher] = useApproveTeacherMutation();
   const [rejectTeacher] = useRejectTeacherMutation();
   const [selectedTeacherId, setSelectedTeacherId] = useState(null);
-  const [selectedTeacherType, setSelectedTeacherType] = useState(null); // 'pending' or 'approved'
+  const [selectedTeacherType, setSelectedTeacherType] = useState(null); // 'pending', 'approved', or 'rejected'
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const {
@@ -48,6 +51,7 @@ const TeacherAR = () => {
         toast.success("Teacher approved successfully!");
         refetchPending();
         refetchAll();
+        refetchRejected();
       } catch (err) {
         toast.error(err?.data?.message || "Failed to approve teacher.");
       }
@@ -61,7 +65,7 @@ const TeacherAR = () => {
         await rejectTeacher({ id, reason }).unwrap();
         toast.info("Teacher rejected successfully and notified via email!");
         refetchPending();
-        refetchAll();
+        refetchRejected();
       } catch (err) {
         toast.error(err?.data?.message || "Failed to reject teacher.");
       }
@@ -136,7 +140,7 @@ const TeacherAR = () => {
     }
   };
 
-  if (loadingPending || loadingAll) {
+  if (loadingPending || loadingAll || loadingRejected) {
     return (
       <div className="flex flex-col items-center justify-center h-screen text-gray-600">
         <Loader2 className="w-10 h-10 animate-spin mb-2" />
@@ -145,13 +149,13 @@ const TeacherAR = () => {
     );
   }
 
-  // Categorize teachers
-  const approvedTeachers = allTeachers.filter((t) => t.isApproved && !t.isRejected);
-  const rejectedTeachers = allTeachers.filter((t) => t.isRejected || t.status === "rejected");
-  const pendingTeachers = pendingData.filter((t) => t.status === "pending");
+  // Categorize teachers - now rejected teachers come from rejectedData (AdminTeacherRequest)
+  const approvedTeachers = allTeachers;
+  const rejectedTeachers = rejectedData;
+  const pendingTeachers = pendingData;
 
   const stats = {
-    total: allTeachers.length + pendingTeachers.length,
+    total: approvedTeachers.length + pendingTeachers.length + rejectedTeachers.length,
     approved: approvedTeachers.length,
     pending: pendingTeachers.length,
     rejected: rejectedTeachers.length,
@@ -224,7 +228,7 @@ const TeacherAR = () => {
                       <div>
                         <div className="font-semibold text-gray-900">{teacher.name}</div>
                         <div className="text-sm text-yellow-600 flex items-center gap-1">
-                          <AlertCircle size={12} />
+                          <Clock size={12} />
                           Pending Approval
                         </div>
                       </div>
@@ -390,7 +394,7 @@ const TeacherAR = () => {
                   <th className="px-6 py-4 text-left font-semibold">Contact</th>
                   <th className="px-6 py-4 text-left font-semibold">Qualification</th>
                   <th className="px-6 py-4 text-left font-semibold">Subjects</th>
-                  <th className="px-6 py-4 text-left font-semibold">Status</th>
+                  <th className="px-6 py-4 text-left font-semibold">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -412,10 +416,14 @@ const TeacherAR = () => {
                       {formatSubjects(teacher.subjects)}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="inline-flex items-center px-2 py-1 bg-red-100 text-red-800 rounded-full text-sm font-medium">
-                        <XCircle size={12} className="mr-1" />
-                        Rejected
-                      </span>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleViewDetails(teacher._id, 'rejected')}
+                          className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                        >
+                          <Eye size={16} /> Details
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -436,9 +444,18 @@ const TeacherAR = () => {
                 <div>
                   <h3 className="text-2xl font-bold text-gray-800">Teacher Details</h3>
                   <div className={`text-sm font-medium ${
-                    selectedTeacherType === 'pending' ? 'text-yellow-600' : 'text-green-600'
+                    selectedTeacherType === 'pending' 
+                      ? 'text-yellow-600' 
+                      : selectedTeacherType === 'rejected'
+                      ? 'text-red-600'
+                      : 'text-green-600'
                   }`}>
-                    {selectedTeacherType === 'pending' ? 'Pending Approval' : 'Approved Teacher'}
+                    {selectedTeacherType === 'pending' 
+                      ? 'Pending Approval' 
+                      : selectedTeacherType === 'rejected'
+                      ? 'Rejected Teacher'
+                      : 'Approved Teacher'
+                    }
                   </div>
                 </div>
               </div>
@@ -462,9 +479,23 @@ const TeacherAR = () => {
                   {selectedTeacherType === 'pending' && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <div className="flex items-center gap-2 text-yellow-800">
-                        <AlertCircle size={20} />
+                        <Clock size={20} />
                         <span className="font-semibold">This teacher is pending approval</span>
                       </div>
+                    </div>
+                  )}
+
+                  {selectedTeacherType === 'rejected' && (
+                    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+                      <div className="flex items-center gap-2 text-red-800">
+                        <XCircle size={20} />
+                        <span className="font-semibold">This teacher request has been rejected</span>
+                      </div>
+                      {teacherDetails.rejectionReason && (
+                        <div className="mt-2 text-red-700">
+                          <strong>Reason:</strong> {teacherDetails.rejectionReason}
+                        </div>
+                      )}
                     </div>
                   )}
 

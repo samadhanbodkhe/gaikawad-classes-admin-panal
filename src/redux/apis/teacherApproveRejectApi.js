@@ -6,12 +6,21 @@ export const teacherApproveRejectApi = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: `${import.meta.env.VITE_BACKEND_URL}/api/v1/approveReject`,
     credentials: "include",
+      prepareHeaders: (headers) => {
+            const token = localStorage.getItem("token");
+            if (token) headers.set("Authorization", `Bearer ${token}`);
+            return headers;
+        },
   }),
   tagTypes: ["TeacherRequests", "Teachers"],
   endpoints: (builder) => ({
     getPendingTeachers: builder.query({
       query: () => "/teacher-requests",
       providesTags: ["TeacherRequests"],
+    }),
+     getRejectedTeachers: builder.query({
+      query: () => '/rejected',
+      providesTags: ['TeacherRequests'],
     }),
     getAllTeachers: builder.query({
       query: () => "/getAllTeachers",
@@ -34,7 +43,7 @@ export const teacherApproveRejectApi = createApi({
         method: "PUT",
         body: { reason },
       }),
-      invalidatesTags: ["TeacherRequests", "Teachers"],
+      invalidatesTags: ["TeacherRequests"],
     }),
   }),
 });
@@ -42,6 +51,7 @@ export const teacherApproveRejectApi = createApi({
 export const {
   useGetPendingTeachersQuery,
   useGetAllTeachersQuery,
+  useGetRejectedTeachersQuery,
   useGetTeacherDetailsQuery,
   useApproveTeacherMutation,
   useRejectTeacherMutation,
